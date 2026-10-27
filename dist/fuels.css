@@ -1,0 +1,127 @@
+/* Fuel is inherited by each SVG group; valve status badges keep their own palette. */
+:root {
+  --diesel-line: #70c7ee;
+  --diesel-symbol: #4f9ec4;
+  --diesel-fill: #e8f6fd;
+  --diesel-oil: #abdff5;
+  --diesel-detail: #c5e4f2;
+}
+:root[data-theme="dark"] {
+  --diesel-line: #8bd1f4;
+  --diesel-symbol: #96cce8;
+  --diesel-fill: #20343f;
+  --diesel-oil: #608fa7;
+  --diesel-detail: #567c91;
+}
+.fluid-diesel {
+  --fluid-line: var(--diesel-line);
+  --fluid-symbol: var(--diesel-symbol);
+  --fluid-fill: var(--diesel-fill);
+  --fluid-oil: var(--diesel-oil);
+  --fluid-detail: var(--diesel-detail);
+}
+.pipe.active.fluid-diesel .pipe-line { stroke: var(--fluid-line); }
+.node.active.fluid-diesel .node-symbol { color: var(--fluid-symbol); }
+.node.active.fluid-diesel .port.active { stroke: var(--fluid-line); }
+.flow-line.diesel { background: var(--diesel-line); }
+
+/* Mixed supply retains the orange base and adds a distinct blue dash pattern. */
+.pipe-secondary {
+  display: none;
+  fill: none;
+  stroke: var(--diesel-line);
+  stroke-width: 5;
+  stroke-dasharray: 12 12;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.pipe.active.fluid-mixed .pipe-secondary { display: inline; }
+.pipe.active.fluid-mixed .pipe-line { stroke: var(--orange); }
+.fuel-mixed-indicator { font-size: 9px; fill: var(--diagram-subtle); }
+
+.fuel-label,
+.fuel-key { display: inline-flex; align-items: center; gap: 7px; }
+.fuel-label { font-size: 10px; color: #7c8797; line-height: 1.7; }
+.fuel-key { font-size: 10px; color: #748091; white-space: nowrap; }
+.fuel-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; display: inline-block; }
+.fuel-dot.fuel { background: var(--orange); }
+.fuel-dot.diesel { background: var(--diesel-line); }
+.fuel-select {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 29px 8px 10px;
+  background: #fafbfc;
+  color: #596271;
+  border: 1px solid #e6e9ee;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.fuel-select:focus-visible { border-color: #edab80; outline: 2px solid #edab8040; outline-offset: 2px; }
+.fuel-select:disabled { cursor: default; opacity: .65; }
+.fuel-select option { background: #fff; color: #596271; }
+.source-row { display: flex; align-items: center; gap: 9px; padding: 11px 0; border-bottom: 1px solid #edf0f3; }
+.source-row > .fuel-label,
+.source-row > .source-name { flex: 1; min-width: 0; }
+.source-name { color: #687586; font-size: 11px; overflow-wrap: anywhere; }
+.source-row .fuel-select { width: 103px; min-height: 31px; padding: 6px 24px 6px 8px; flex-shrink: 0; font-size: 11px; }
+.source-row .fuel-label > span:last-child { overflow-wrap: anywhere; }
+
+[data-theme="dark"] .fuel-label,
+[data-theme="dark"] .fuel-key,
+[data-theme="dark"] .source-name { color: #b4c0d0; }
+[data-theme="dark"] .fuel-select { background: #171e28; border-color: #404c5d; color: #d7dfe9; }
+[data-theme="dark"] .fuel-select:focus-visible { border-color: #d69970; outline-color: #d6997040; }
+[data-theme="dark"] .fuel-select:disabled { color: #98a5b7; }
+[data-theme="dark"] .fuel-select option { background: #202834; color: #d7dfe9; }
+[data-theme="dark"] .source-row { border-color: #313b49; }
+
+.legend > span { white-space: nowrap; }
+@media (max-width: 560px) {
+  .canvas-bottom { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
+  .canvas-bottom .legend { flex-wrap: wrap; gap: 7px 12px; min-width: 0; }
+  .canvas-bottom .zoom-control { justify-self: end; margin-left: 0; }
+  .mode-hint { bottom: 105px; }
+  .source-row { gap: 7px; }
+}
+
+.toolbar-right { display: flex; align-items: center; gap: 10px; }
+.pipe-kind-select { width: 92px; min-height: 30px; padding: 5px 19px 5px 8px; font-size: 10px; }
+.node .port.fluid-diesel.active { stroke: var(--diesel-line); }
+.pipe.underground .pipe-line { stroke-dasharray: 12 7; }
+.pipe.underground .pipe-secondary { stroke-dasharray: 6 13; stroke-dashoffset: -6; }
+.pipe.underground .flow-dashes { display: none; }
+.mixed-note { margin: 12px 0 0; line-height: 1.8; }
+@media (max-width: 800px) {
+ .toolbar-right { gap: 5px; }
+ .pipe-kind-select { width: 75px; padding-right: 12px; font-size: 9px; }
+}
+@media (max-width: 560px) {
+ .canvas-toolbar { padding: 0 5px; }
+ .toolbar-right { gap: 2px; }
+ .pipe-kind-select { width: 68px; padding-left: 5px; font-size: 9px; }
+}
+
+.standalone-pipe-hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; }
+.node.selected .standalone-pipe > .pipe-border { stroke: #f4cca9; stroke-width: 14; }
+[data-theme="dark"] .node.selected .standalone-pipe > .pipe-border { stroke: #705139; }
+.route-toggle { flex-shrink: 0; border-radius: 5px; gap: 4px; padding: 6px; }
+.route-toggle.active { color: var(--orange); background: var(--orange-light); }
+#waypointLayer circle { fill: var(--diagram-surface); stroke: var(--orange); stroke-width: 2; cursor: move; pointer-events: all; }
+#waypointLayer circle:hover, #waypointLayer circle.selected { fill: var(--orange-light); stroke-width: 3; }
+#draftPoints circle { fill: var(--orange); stroke: var(--diagram-surface); stroke-width: 2; pointer-events: none; }
+.waypoint-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 16px; }
+.waypoint-actions .button { font-size: 10px; padding: 7px 10px; }
+@media(max-width: 800px) {
+ .route-label { display: none; }
+ .route-toggle { padding: 6px 3px; }
+ .route-toggle .icon { width: 15px; height: 15px; }
+}
+@media(max-width: 560px) {
+ .canvas-toolbar .tools { gap: 0; }
+ .canvas-toolbar .tools .tool { width: 25px; }
+}

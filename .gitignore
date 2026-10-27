@@ -1,0 +1,10 @@
+portable/
+*.tar.gz
+*.zip
+qa-*.png
+.openai/
+.vercel/
+.env
+.env.*
+node_modules/
+__pycache__/
