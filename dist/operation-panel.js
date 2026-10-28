@@ -1,6 +1,6 @@
 import {captureOperation,applyOperation,operationMatches,normalizeOperations,topologySignature} from './operations.js?v=operations-1';
 
-export function setupOperationPanel({getProject,getMode,library,apply,edit,confirm,notify}) {
+export function setupOperationPanel({getProject,getMode,library,apply,edit,operate,confirm,notify}) {
   const el=id=>document.getElementById(id),dialog=el('operationDialog');
   const key=name=>name.normalize('NFKC').trim().replace(/\s+/gu,' ').toLowerCase();
   let selectedId=null,diagramId=null,renaming=null,busy=false,listRequest=0;
@@ -34,6 +34,7 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,confi
   function sync(){
     const operating=getMode()==='sim',context=library.context(),project=getProject();
     el('operationsSidebar').hidden=!operating;el('editorLibrary').hidden=operating;
+    el('editorModeBar').hidden=operating;
     el('saveOperationBtn').hidden=!operating;el('saveProjectBtn').hidden=operating;
     el('operationStatus').hidden=!operating;
     if(diagramId!==context?.id){diagramId=context?.id||null;selectedId=null;}
@@ -105,7 +106,7 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,confi
   el('closeOperationDialog').onclick=()=>dialog.close();el('cancelOperation').onclick=()=>dialog.close();
   dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   el('saveOperationBtn').onclick=()=>openDialog();el('saveOperationInline').onclick=()=>openDialog();el('newOperationBtn').onclick=()=>openDialog({newOperation:true});
-  el('editDiagramBtn').onclick=edit;el('manageDiagramsBtn').onclick=()=>library.open();
+  el('editDiagramBtn').onclick=edit;el('returnToOperationsBtn').onclick=operate;el('manageDiagramsBtn').onclick=()=>library.open();
   refreshDiagrams();sync();
   return {sync,refreshDiagrams};
 }

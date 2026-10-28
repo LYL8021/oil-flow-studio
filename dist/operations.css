@@ -2,6 +2,7 @@
 #operationsSidebar[hidden],
 #editorLibrary[hidden],
 #operationStatus[hidden],
+#editorModeBar[hidden],
 #saveOperationBtn[hidden],
 #saveProjectBtn[hidden] { display: none !important; }
 
@@ -68,6 +69,28 @@
 .operations-storage-note { margin: -12px 0 0; color: var(--muted); font-size: 9px; line-height: 1.85; }
 
 .mode-switch { flex-shrink: 0; }
+.editor-mode-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  min-width: 0;
+  margin: 16px 20px 0;
+  padding: 11px 13px;
+  border: 1px solid var(--orange);
+  border-radius: 7px;
+  background: var(--orange-light);
+}
+.editor-mode-bar > div { min-width: 0; }
+.editor-mode-bar strong { display: block; color: var(--ink); font-size: 12px; font-weight: 500; }
+.editor-mode-bar span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+#returnToOperationsBtn { flex-shrink: 0; white-space: nowrap; min-height: 36px; }
+@media (max-width: 560px) {
+  .editor-mode-bar { flex-wrap: wrap; margin: 10px 10px 0; padding: 10px; gap: 8px; }
+  .editor-mode-bar > div { flex-basis: 100%; }
+  #returnToOperationsBtn { width: 100%; justify-content: center; }
+}
 .canvas-header h1 { min-width: 0; }
 .canvas-header .editable-dot { flex-shrink: 0; }
 #saveOperationBtn { white-space: nowrap; flex-shrink: 0; }

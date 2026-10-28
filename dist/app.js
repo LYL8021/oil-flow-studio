@@ -4,7 +4,7 @@ import {referenceSymbol} from './symbols.js?v=image-1';
 import {analyzeImage,readImage} from './image-draft.js?v=image-1';
 import {setupProjectLibrary} from './project-library.js?v=operations-1';
 import {normalizeOperations} from './operations.js?v=operations-1';
-import {setupOperationPanel} from './operation-panel.js?v=operations-1';
+import {setupOperationPanel} from './operation-panel.js?v=return-1';
 
 const $ = (id) => document.getElementById(id);
 const icons = {
@@ -217,7 +217,7 @@ function toggleValve(id){const n=nodeById(id);if(n?.type==='valve'){change(()=>n
 function rotateSelected(){if(mode==='sim')return;const n=selected?.kind==='node'?nodeById(selected.id):null;if(n)change(()=>n.rotation=((n.rotation||0)+90)%360);}
 function deleteSelected(){if(!selected||mode==='sim')return;const s=selected;change(()=>{if(s.kind==='node'){state.nodes=state.nodes.filter(n=>n.id!==s.id);state.edges=state.edges.filter(e=>e.from.node!==s.id&&e.to.node!==s.id);}else state.edges=state.edges.filter(e=>e.id!==s.id);selected=null;selectedWaypoint=null;clearDraft();});}
 function setTool(value){tool=value;clearDraft();selectedWaypoint=null;$('canvas').dataset.tool=tool;for(const t of ['select','pipe','hand'])$(t+'Tool').classList.toggle('active',t===tool);routingHint();renderGraph();}
-function setMode(value){mode=value;document.body.dataset.workspace=mode==='sim'?'operate':'edit';selected=null;$('editMode').classList.toggle('active',mode==='edit');$('simMode').classList.toggle('active',mode==='sim');$('newPipeKind').disabled=mode==='sim';$('freeRouteBtn').disabled=mode==='sim';document.querySelectorAll('.component-card').forEach(el=>{el.draggable=mode==='edit';el.disabled=mode==='sim';});setTool('select');render();if(mode==='sim')notify('作業模式：可選作業或調整閥門，管線與元件位置已鎖定');}
+function setMode(value){mode=value;document.body.dataset.workspace=mode==='sim'?'operate':'edit';selected=null;$('editMode').classList.toggle('active',mode==='edit');$('simMode').classList.toggle('active',mode==='sim');$('editMode').setAttribute('aria-pressed',String(mode==='edit'));$('simMode').setAttribute('aria-pressed',String(mode==='sim'));$('newPipeKind').disabled=mode==='sim';$('freeRouteBtn').disabled=mode==='sim';document.querySelectorAll('.component-card').forEach(el=>{el.draggable=mode==='edit';el.disabled=mode==='sim';});setTool('select');render();if(mode==='sim')notify('作業模式：可選作業或調整閥門，管線與元件位置已鎖定');}
 function applyView(){const box=$('canvasWrap').getBoundingClientRect();if(!box.width||!box.height)return;view.h=view.w*box.height/box.width;$('canvas').setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);$('zoomValue').textContent=Math.round(1200/view.w*100)+'%';}
 function fit(){
  const box=$('canvasWrap').getBoundingClientRect(),ratio=box.width/box.height;if(!ratio)return;
@@ -358,7 +358,7 @@ projectLibrary=setupProjectLibrary({
 });
 operationPanel=setupOperationPanel({getProject:()=>state,getMode:()=>mode,library:projectLibrary,
  apply:next=>{change(()=>{state=next;selected=null;selectedWaypoint=null;clearDraft();});setMode('sim');},
- edit:()=>setMode('edit'),confirm:(title,description,action)=>confirmReplace(title,action,description),notify
+ edit:()=>setMode('edit'),operate:()=>setMode('sim'),confirm:(title,description,action)=>confirmReplace(title,action,description),notify
 });
 function renderReference(){
  const r=state.reference;
