@@ -1,0 +1,187 @@
+/* Fixed diagrams and their saved valve configurations share the editor palette. */
+#operationsSidebar[hidden],
+#editorLibrary[hidden],
+#operationStatus[hidden],
+#saveOperationBtn[hidden],
+#saveProjectBtn[hidden] { display: none !important; }
+
+.editor-library { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.operations-sidebar {
+  --operation-danger: #aa5d57;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 22px;
+  padding-bottom: 18px;
+}
+.operation-section { min-width: 0; }
+.operation-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 9px; }
+.operation-section-heading h2 { margin: 0; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.operation-section-heading button { min-width: 28px; min-height: 28px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 10px; flex-shrink: 0; }
+.operation-section-heading button:hover:not(:disabled) { color: var(--ink); background: var(--bg); }
+#newOperationBtn { color: var(--orange); font-size: 17px; line-height: 1; }
+.operation-section-help { color: var(--muted); font-size: 10px; line-height: 1.8; margin: 0 0 13px; }
+.fixed-diagram-list, .operation-list { display: grid; gap: 7px; min-width: 0; padding: 3px; margin: -3px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.fixed-diagram-list { max-height: min(31dvh, 280px); }
+.operation-list { max-height: min(36dvh, 330px); }
+.fixed-diagram-card {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 11px 12px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+}
+.fixed-diagram-card strong, .operation-apply strong { display: block; max-width: 100%; color: var(--ink); font-size: 12px; font-weight: 500; line-height: 1.65; overflow-wrap: anywhere; }
+.fixed-diagram-card > span, .operation-apply > span { color: var(--muted); font-size: 9px; line-height: 1.65; overflow-wrap: anywhere; }
+.fixed-diagram-card:hover:not(:disabled) { border-color: var(--orange); background: var(--bg); }
+.fixed-diagram-card.is-current { border-color: var(--orange); background: var(--orange-light); }
+.fixed-diagram-card.is-current strong { color: var(--orange); }
+#operationDiagramLabel { display: block; margin: 0 0 12px; color: var(--muted); font-size: 10px; line-height: 1.7; overflow-wrap: anywhere; }
+.operation-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); }
+.operation-apply { display: flex; width: 100%; min-width: 0; min-height: 57px; flex-direction: column; justify-content: center; align-items: flex-start; gap: 5px; padding: 11px 12px; text-align: left; }
+.operation-card .operation-apply:hover:not(:disabled) { background: var(--bg); }
+.operation-card.is-current { border-color: var(--green); }
+.operation-card.is-current .operation-apply { background: var(--bg); }
+.operation-card.is-current .operation-apply strong { color: var(--green); }
+.operation-card.is-incompatible { border-style: dashed; }
+.operation-card.is-incompatible .operation-apply > span { color: var(--operation-danger); }
+.operation-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding: 2px 5px; border-top: 1px solid var(--line); }
+.operation-card-actions button { min-height: 27px; padding: 4px 7px; border-radius: 4px; color: var(--muted); font-size: 9px; }
+.operation-card-actions button:hover:not(:disabled) { background: var(--bg); color: var(--ink); }
+.operation-card-actions button.danger { color: var(--operation-danger); }
+.operation-empty { padding: 18px 11px; border: 1px dashed var(--line); border-radius: 7px; color: var(--muted); font-size: 10px; line-height: 1.85; overflow-wrap: anywhere; }
+.operation-empty strong { display: block; color: var(--ink); font-weight: 500; margin-bottom: 5px; }
+.operation-empty p { margin: 0; }
+.operation-empty button { margin-top: 10px; min-height: 31px; padding: 6px 9px; color: var(--orange); font-size: 10px; border: 1px solid var(--line); border-radius: 5px; }
+#editDiagramBtn { width: 100%; min-height: 36px; margin-top: auto; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); background: var(--paper); font-size: 11px; }
+#editDiagramBtn:hover:not(:disabled) { background: var(--bg); color: var(--ink); }
+.operations-storage-note { margin: -12px 0 0; color: var(--muted); font-size: 9px; line-height: 1.85; }
+
+.mode-switch { flex-shrink: 0; }
+.canvas-header h1 { min-width: 0; }
+.canvas-header .editable-dot { flex-shrink: 0; }
+#saveOperationBtn { white-space: nowrap; flex-shrink: 0; }
+.operation-status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  margin: 0 20px 12px;
+  padding: 10px 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+#operationStatusText { flex: 1; min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
+#operationCounts { color: var(--muted); font: 9px var(--mono); white-space: nowrap; }
+#saveOperationInline { min-height: 28px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 5px; color: var(--orange); font-size: 10px; white-space: nowrap; }
+#saveOperationInline:hover:not(:disabled) { background: var(--orange-light); }
+
+.operation-dialog {
+  --operation-danger: #aa5d57;
+  width: min(600px, calc(100% - 36px));
+  max-width: 600px;
+  max-height: 87vh;
+  max-height: 87dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: var(--ink);
+  background: var(--paper);
+}
+.operation-dialog h2 { margin: 17px 0 9px; font-size: 23px; line-height: 1.5; }
+#operationDialogDescription { margin: 0 0 22px; color: var(--muted); font-size: 12px; line-height: 1.85; }
+#operationForm label { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 500; }
+#operationName { display: block; width: 100%; min-width: 0; min-height: 40px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; outline: none; background: var(--bg); color: var(--ink); font: inherit; font-size: 12px; }
+#operationName::placeholder { color: var(--muted); }
+#operationName:focus { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-light); }
+.operation-valve-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0 12px; }
+.operation-valve-summary > * { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: var(--bg); font-size: 11px; line-height: 1.6; }
+#operationOpenCount { color: var(--green); }
+.operation-valve-summary strong { font-weight: 500; }
+#operationValvePreview { display: grid; gap: 0; max-height: 230px; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 4px 0; scrollbar-width: thin; }
+.operation-valve-row, .operation-preview-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 9px 2px; color: var(--muted); font-size: 10px; line-height: 1.75; }
+.operation-valve-row + .operation-valve-row, .operation-preview-row + .operation-preview-row { border-top: 1px solid var(--line); }
+.operation-valve-row > strong, .operation-preview-row > strong { font-weight: 500; color: var(--ink); }
+.operation-valve-row > :first-child, .operation-preview-row > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.operation-valve-state { flex-shrink: 0; padding: 2px 7px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 9px; }
+.operation-valve-state.is-open { color: var(--green); }
+#operationMessage { min-height: 18px; margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.8; overflow-wrap: anywhere; }
+#operationMessage:empty { min-height: 0; margin: 0; }
+#operationMessage.is-error { color: var(--operation-danger); }
+.operation-dialog-footer, .operation-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 9px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.operation-dialog-footer .button, .operation-actions .button { white-space: nowrap; }
+[data-theme="dark"] .operations-sidebar,
+[data-theme="dark"] .operation-dialog { --operation-danger: #e4a19b; }
+
+@media (min-width: 1600px) {
+  .operation-status { margin-left: 30px; margin-right: 30px; }
+}
+@media (max-width: 800px) {
+  .operations-sidebar { gap: 18px; padding-bottom: 13px; }
+  .operation-section-heading h2 { font-size: 11px; }
+  .operation-section-heading button { padding: 4px 5px; font-size: 9px; }
+  .fixed-diagram-card, .operation-apply { padding: 9px 8px; }
+  .fixed-diagram-card strong, .operation-apply strong { font-size: 11px; }
+  .fixed-diagram-card > span, .operation-apply > span { font-size: 8px; }
+  .operation-card-actions button { padding: 4px 5px; font-size: 8px; }
+  .operation-status { margin: 0 10px 10px; padding: 8px 10px; font-size: 9px; gap: 6px 10px; }
+  #operationCounts { font-size: 8px; }
+  #saveOperationInline { font-size: 9px; }
+}
+@media (max-width: 560px) {
+  body[data-workspace="operate"] .library { padding: 10px 12px; overflow: hidden; }
+  .editor-library { display: block; }
+  .operations-sidebar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    max-height: 210px;
+    min-height: 0;
+    gap: 9px 12px;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+  .operation-section { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .operation-section-heading { margin-bottom: 7px; }
+  .operation-section-heading h2 { font-size: 11px; }
+  .operation-section-heading button { min-height: 25px; }
+  .operation-section-help { display: none; }
+  .fixed-diagram-list, .operation-list { min-height: 0; max-height: 123px; gap: 6px; }
+  .fixed-diagram-card, .operation-apply { min-height: 43px; padding: 7px 8px; gap: 3px; }
+  .fixed-diagram-card strong, .operation-apply strong { font-size: 10px; line-height: 1.5; }
+  .fixed-diagram-card > span, .operation-apply > span { font-size: 8px; line-height: 1.5; }
+  #operationDiagramLabel { max-width: 100%; margin: 0 0 7px; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .operation-card-actions { padding: 1px 4px; }
+  .operation-card-actions button { min-height: 24px; padding: 3px 6px; font-size: 8px; }
+  .operation-empty { padding: 10px 8px; font-size: 9px; line-height: 1.7; }
+  .operation-empty button { margin-top: 7px; min-height: 26px; padding: 4px 7px; font-size: 9px; }
+  #editDiagramBtn { grid-column: 1 / -1; min-height: 28px; margin-top: 0; font-size: 10px; }
+  .operations-storage-note { display: none; }
+  .mode-switch button { padding: 5px 7px; font-size: 9px; white-space: nowrap; }
+  .operation-status { gap: 5px 8px; padding: 7px 9px; margin-bottom: 8px; font-size: 9px; }
+  #operationStatusText { flex-basis: 100%; }
+  #saveOperationInline { min-height: 25px; margin-left: auto; padding: 3px 6px; }
+  #saveOperationBtn .icon { width: 15px; height: 15px; }
+  .operation-dialog { width: calc(100% - 24px); padding: 22px 18px; }
+  .operation-dialog h2 { font-size: 21px; }
+  #operationDialogDescription { font-size: 11px; margin-bottom: 18px; }
+  #operationName { font-size: 16px; }
+  .operation-valve-summary { gap: 8px; margin-top: 14px; }
+  .operation-valve-summary > * { padding: 10px; font-size: 10px; }
+  #operationValvePreview { max-height: 27dvh; }
+  .operation-dialog-footer, .operation-actions { margin-top: 17px; padding-top: 14px; }
+}

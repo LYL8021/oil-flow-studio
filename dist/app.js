@@ -2,7 +2,9 @@ import {computeFlow} from './flow.js?v=image-1';
 import {pipePath} from './pipes.js?v=image-1';
 import {referenceSymbol} from './symbols.js?v=image-1';
 import {analyzeImage,readImage} from './image-draft.js?v=image-1';
-import {setupProjectLibrary} from './project-library.js?v=library-1';
+import {setupProjectLibrary} from './project-library.js?v=operations-1';
+import {normalizeOperations} from './operations.js?v=operations-1';
+import {setupOperationPanel} from './operation-panel.js?v=operations-1';
 
 const $ = (id) => document.getElementById(id);
 const icons = {
@@ -56,8 +58,8 @@ const fluidText=fuels=>fuels?.size>1?'雙油源連通':fuels?.has('diesel')?'柴
 const pipeKinds={normal:'一般油管',bridge:'跨管',underground:'地下管'};
 const pipeKindOptions=value=>Object.entries(pipeKinds).map(([key,name])=>`<option value="${key}" ${value===key?'selected':''}>${name}</option>`).join('');
 const STORAGE='oil-flow-studio-v1';
-let state={nodes:[],edges:[]},history=[],future=[],selected=null,mode='edit',tool='select',newPipeKind='normal',newRouting='orthogonal',grid=true,pendingPort=null,draftWaypoints=[],draftPointer=null,selectedWaypoint=null,view={x:0,y:0,w:1200,h:720},drag=null,toastTimer,saveTimer,storageAvailable=true;
-let projectLibrary=null;
+let state={nodes:[],edges:[]},history=[],future=[],selected=null,mode='sim',tool='select',newPipeKind='normal',newRouting='orthogonal',grid=true,pendingPort=null,draftWaypoints=[],draftPointer=null,selectedWaypoint=null,view={x:0,y:0,w:1200,h:720},drag=null,toastTimer,saveTimer,storageAvailable=true;
+let projectLibrary=null,operationPanel=null;
 let flow={activeEdges:new Set(),activeNodes:new Set(),activePorts:new Set(),activeEdgeFuels:new Map(),activeNodeFuels:new Map(),activePortFuels:new Map()};
 const clone=v=>JSON.parse(JSON.stringify(v));
 function sample(){
@@ -210,12 +212,12 @@ function renderInspector(){
  $('inspectorContent').querySelectorAll('[data-switch]').forEach(el=>el.onclick=()=>toggleValve(el.dataset.switch));$('inspectorContent').querySelectorAll('[data-select]').forEach(el=>el.onclick=()=>{selected={kind:'node',id:el.dataset.select};render();});
  }
 }
-function render(){renderGraph();renderInspector();projectLibrary?.sync();}
+function render(){renderGraph();renderInspector();projectLibrary?.sync();operationPanel?.sync();}
 function toggleValve(id){const n=nodeById(id);if(n?.type==='valve'){change(()=>n.open=!n.open);}}
 function rotateSelected(){if(mode==='sim')return;const n=selected?.kind==='node'?nodeById(selected.id):null;if(n)change(()=>n.rotation=((n.rotation||0)+90)%360);}
 function deleteSelected(){if(!selected||mode==='sim')return;const s=selected;change(()=>{if(s.kind==='node'){state.nodes=state.nodes.filter(n=>n.id!==s.id);state.edges=state.edges.filter(e=>e.from.node!==s.id&&e.to.node!==s.id);}else state.edges=state.edges.filter(e=>e.id!==s.id);selected=null;selectedWaypoint=null;clearDraft();});}
 function setTool(value){tool=value;clearDraft();selectedWaypoint=null;$('canvas').dataset.tool=tool;for(const t of ['select','pipe','hand'])$(t+'Tool').classList.toggle('active',t===tool);routingHint();renderGraph();}
-function setMode(value){mode=value;selected=null;$('editMode').classList.toggle('active',mode==='edit');$('simMode').classList.toggle('active',mode==='sim');$('newPipeKind').disabled=mode==='sim';$('freeRouteBtn').disabled=mode==='sim';document.querySelectorAll('.component-card').forEach(el=>{el.draggable=mode==='edit';el.disabled=mode==='sim';});setTool('select');render();if(mode==='sim')notify('模擬模式：直接點擊閥門開關；元件位置已鎖定');}
+function setMode(value){mode=value;document.body.dataset.workspace=mode==='sim'?'operate':'edit';selected=null;$('editMode').classList.toggle('active',mode==='edit');$('simMode').classList.toggle('active',mode==='sim');$('newPipeKind').disabled=mode==='sim';$('freeRouteBtn').disabled=mode==='sim';document.querySelectorAll('.component-card').forEach(el=>{el.draggable=mode==='edit';el.disabled=mode==='sim';});setTool('select');render();if(mode==='sim')notify('作業模式：可選作業或調整閥門，管線與元件位置已鎖定');}
 function applyView(){const box=$('canvasWrap').getBoundingClientRect();if(!box.width||!box.height)return;view.h=view.w*box.height/box.width;$('canvas').setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);$('zoomValue').textContent=Math.round(1200/view.w*100)+'%';}
 function fit(){
  const box=$('canvasWrap').getBoundingClientRect(),ratio=box.width/box.height;if(!ratio)return;
@@ -291,8 +293,8 @@ $('freeRouteBtn').onclick=()=>{if(mode==='sim')return;newRouting=newRouting==='f
 applyRoutingMode();
 $('newPipeKind').onchange=ev=>{newPipeKind=ev.target.value;notify('新增油管：'+pipeKinds[newPipeKind]);};
 $('editMode').onclick=()=>setMode('edit');$('simMode').onclick=()=>setMode('sim');$('rotateBtn').onclick=rotateSelected;$('deleteBtn').onclick=deleteSelected;
-function undo(){if(!history.length)return;future.push(clone(state));state=history.pop();const name=projectLibrary?.context()?.name;if(name)state.title=name;selected=null;selectedWaypoint=null;clearDraft();render();persist();}
-function redo(){if(!future.length)return;history.push(clone(state));state=future.pop();const name=projectLibrary?.context()?.name;if(name)state.title=name;selected=null;selectedWaypoint=null;clearDraft();render();persist();}
+function undo(){if(!history.length)return;future.push(clone(state));const preserveOperations=!!projectLibrary?.context(),operations=state.operations;state=history.pop();if(preserveOperations){if(operations)state.operations=operations;else delete state.operations;}const name=projectLibrary?.context()?.name;if(name)state.title=name;selected=null;selectedWaypoint=null;clearDraft();render();persist();}
+function redo(){if(!future.length)return;history.push(clone(state));const preserveOperations=!!projectLibrary?.context(),operations=state.operations;state=future.pop();if(preserveOperations){if(operations)state.operations=operations;else delete state.operations;}const name=projectLibrary?.context()?.name;if(name)state.title=name;selected=null;selectedWaypoint=null;clearDraft();render();persist();}
 $('undoBtn').onclick=undo;$('redoBtn').onclick=redo;
 $('gridBtn').onclick=()=>{grid=!grid;$('gridBtn').classList.toggle('active',grid);$('gridBackground').setAttribute('fill',grid?'url(#dots)':'var(--diagram-surface)');notify(grid?'格點吸附已開啟':'格點吸附已關閉');};
 $('zoomIn').onclick=()=>zoom(1/1.2);$('zoomOut').onclick=()=>zoom(1.2);$('fitBtn').onclick=fit;
@@ -305,7 +307,7 @@ $('confirmCancel').onclick=()=>$('confirmDialog').close();
 for(const id of ['helpBtn','tutorialBtn'])$(id).onclick=()=>$('helpDialog').showModal();for(const id of ['closeHelp','startBtn'])$(id).onclick=()=>$('helpDialog').close();
 $('inspectorToggle').onclick=()=>$('inspector').classList.toggle('show');$('closeInspector').onclick=()=>$('inspector').classList.remove('show');
 document.addEventListener('keydown',ev=>{
- if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='s'&&!document.querySelector('dialog[open]')){ev.preventDefault();projectLibrary?.open({focusName:true});return;}
+ if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='s'&&!document.querySelector('dialog[open]')){ev.preventDefault();mode==='sim'?$('saveOperationBtn').click():projectLibrary?.open({focusName:true});return;}
  if(/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)||document.querySelector('dialog[open]'))return;
  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='z'){ev.preventDefault();ev.shiftKey?redo():undo();return;}
  if(ev.key==='Escape'){clearDraft();selected=null;selectedWaypoint=null;render();return;}
@@ -341,15 +343,22 @@ function validateProject(input){
  const byId=new Map(nodes.map(n=>[n.id,n])),edgeIds=new Set();const edges=input.edges.map(e=>{const valid=ep=>ep&&byId.has(ep.node)&&types[byId.get(ep.node).type].ports.includes(ep.port);if(!e||!safeId(e.id)||edgeIds.has(e.id)||!valid(e.from)||!valid(e.to)||e.from.node===e.to.node)throw Error('油管接點無效或有重複編號');edgeIds.add(e.id);if(e.waypoints!=null&&!Array.isArray(e.waypoints))throw Error('油管轉折點資料無效');const waypoints=e.waypoints||[];if(waypoints.length>100||waypoints.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||Math.abs(p.x)>10000||Math.abs(p.y)>10000))throw Error('油管轉折點資料無效或超過範圍');return {id:e.id,from:{node:e.from.node,port:e.from.port},to:{node:e.to.node,port:e.to.port},kind:Object.hasOwn(pipeKinds,e.kind)?e.kind:'normal',routing:e.routing==='free'?'free':'orthogonal',waypoints:waypoints.map(p=>({x:p.x,y:p.y}))};});const capConnections=new Map();for(const e of edges){for(const end of [e.from,e.to])if(byId.get(end.node).type==='cap'){const count=(capConnections.get(end.node)||0)+1;if(count>1)throw Error('盲封只能連接一段油管');capConnections.set(end.node,count);}}let reference=null;
  if(input.reference!=null){const r=input.reference;if(!r||typeof r.dataUrl!=='string'||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(r.dataUrl)||r.dataUrl.length>3.5e6||!Number.isFinite(r.width)||!Number.isFinite(r.height)||r.width<1||r.height<1||r.width>3000||r.height>3000)throw Error('圖片底圖資料無效或超過範圍');reference={dataUrl:r.dataUrl,width:r.width,height:r.height,x:Number.isFinite(r.x)?Math.max(-10000,Math.min(10000,r.x)):0,y:Number.isFinite(r.y)?Math.max(-10000,Math.min(10000,r.y)):0,visible:r.visible!==false,opacity:Number.isFinite(r.opacity)?Math.max(.05,Math.min(.6,r.opacity)):.22};}
  const draftInfo=input.draftInfo&&typeof input.draftInfo==='object'?{kind:'image',title:String(input.draftInfo.title||input.title||'圖片草稿').slice(0,80),notice:String(input.draftInfo.notice||'圖片草稿，請人工核對元件與連線。').slice(0,500),reviewNotes:Array.isArray(input.draftInfo.reviewNotes)?input.draftInfo.reviewNotes.slice(0,20).map(v=>String(v).slice(0,500)):[]}:null;
- return {nodes,edges,...(reference?{reference}:{}),...(draftInfo?{draftInfo}:{}),...(input.title?{title:String(input.title).slice(0,80)}:{})};
+ const operations=normalizeOperations(input.operations);
+ return {nodes,edges,...(operations.length?{operations}:{}),...(reference?{reference}:{}),...(draftInfo?{draftInfo}:{}),...(input.title?{title:String(input.title).slice(0,80)}:{})};
 }
 $('importBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async ev=>{const file=ev.target.files[0];if(!file)return;try{if(file.size>6e6)throw Error('專案檔超過 6 MB');const next=validateProject(JSON.parse(await file.text()));confirmReplace('匯入這份油路專案？',()=>{projectLibrary?.detach();change(()=>{state=next;selected=null;pendingPort=null;});setMode('edit');fit();notify('專案已匯入');});}catch(err){notify('匯入失敗：'+(err instanceof SyntaxError?'請選擇有效的 JSON 專案檔':err.message));}ev.target.value='';};
 projectLibrary=setupProjectLibrary({
- getProject:()=>state,normalizeProject:validateProject,
- setProject:next=>{state=next;history=[];future=[];selected=null;selectedWaypoint=null;drag=null;clearDraft();setMode('edit');fit();persist();},
+ getProject:()=>state,normalizeProject:validateProject,isOperationMode:()=>mode==='sim',
+ onChange:()=>{operationPanel?.refreshDiagrams();},
+ onOperationsSaved:operations=>{state.operations=operations;render();persist();},
+ setProject:next=>{state=next;history=[];future=[];selected=null;selectedWaypoint=null;drag=null;clearDraft();setMode('sim');fit();persist();},
  setTitle:title=>{state.title=title;projectLibrary?.sync();persist();},
  confirm:(title,description,action)=>confirmReplace(title,action,description),notify,
  downloadProject:(project,name)=>download(JSON.stringify({version:1,...project},null,2),projectFilename(name,'json'),'application/json')
+});
+operationPanel=setupOperationPanel({getProject:()=>state,getMode:()=>mode,library:projectLibrary,
+ apply:next=>{change(()=>{state=next;selected=null;selectedWaypoint=null;clearDraft();});setMode('sim');},
+ edit:()=>setMode('edit'),confirm:(title,description,action)=>confirmReplace(title,action,description),notify
 });
 function renderReference(){
  const r=state.reference;
@@ -409,7 +418,7 @@ async function offerLinkedDraft(){
 }
 
 window.addEventListener('hashchange',offerLinkedDraft);
-let loaded=false,workingProjectContext=null;try{const raw=localStorage.getItem(STORAGE);if(raw){const parsed=JSON.parse(raw);state=validateProject(parsed);workingProjectContext=parsed._savedDrawing;loaded=true;}}catch{}if(!loaded)state=sample();render();if(loaded)projectLibrary.restore(workingProjectContext);
+let loaded=false,workingProjectContext=null;try{const raw=localStorage.getItem(STORAGE);if(raw){const parsed=JSON.parse(raw);state=validateProject(parsed);workingProjectContext=parsed._savedDrawing;loaded=true;}}catch{}if(!loaded)state=sample();setMode('sim');if(loaded)projectLibrary.restore(workingProjectContext);
 const resizeObserver=new ResizeObserver(()=>{applyView();});resizeObserver.observe($('canvasWrap'));requestAnimationFrame(fit);offerLinkedDraft();
 // Expose serializable diagnostics for local QA without changing project data.
 window.oilFlowDiagnostics=()=>({nodes:state.nodes.length,edges:state.edges.length,activeEdges:flow.activeEdges.size,activePorts:[...flow.activePorts],edgeFuels:Object.fromEntries([...flow.activeEdgeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),nodeTypes:Object.fromEntries(state.nodes.map(n=>[n.id,n.type])),nodeFuels:Object.fromEntries([...flow.activeNodeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),pipeKinds:Object.fromEntries(state.edges.map(e=>[e.id,e.kind||'normal'])),edgeRoutes:Object.fromEntries(state.edges.map(e=>[e.id,{routing:e.routing||'orthogonal',waypoints:(e.waypoints||[]).map(p=>({...p}))}])),newRouting,draftWaypointCount:draftWaypoints.length,mode,tool});
