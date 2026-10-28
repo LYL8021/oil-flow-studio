@@ -49,7 +49,8 @@ export function createProjectStore(options = {}) {
   function metadata(record) {
     checkRecord(record);
     return {id:record.id, name:record.name, createdAt:record.createdAt, updatedAt:record.updatedAt,
-      revision:record.revision, nodeCount:record.project.nodes.length, edgeCount:record.project.edges.length};
+      revision:record.revision, nodeCount:record.project.nodes.length, edgeCount:record.project.edges.length,
+      operationCount:Array.isArray(record.project.operations)?record.project.operations.length:0};
   }
 
   function publicRecord(record) {

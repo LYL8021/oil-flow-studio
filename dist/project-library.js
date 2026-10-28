@@ -1,6 +1,7 @@
-import {createProjectStore} from './project-store.js?v=library-1';
+import {createProjectStore} from './project-store.js?v=operations-1';
+import {operationMatches} from './operations.js?v=operations-1';
 
-export function setupProjectLibrary({getProject, normalizeProject, setProject, setTitle, confirm, notify, downloadProject}) {
+export function setupProjectLibrary({getProject, normalizeProject, setProject, setTitle, confirm, notify, downloadProject, isOperationMode=()=>false, onChange=()=>{}, onOperationsSaved=()=>{}}) {
   const el = id => document.getElementById(id);
   const dialog = el('projectLibraryDialog');
   const input = el('projectSaveName');
@@ -18,6 +19,7 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
   function activate(record) {
     session++;
     active = {id:record.id, name:record.name, revision:record.revision, snapshot:JSON.stringify(projectOf(record))};
+    onChange();
   }
   function sync() {
     const title = getProject().title || '未命名油路圖';
@@ -29,10 +31,22 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
     session++;
     active = null;
     sync();
+    onChange();
+  }
+  function comparison(project, ignoreValves=false) {
+    const normalized = normalizeProject(project);
+    if(ignoreValves){delete normalized.operations;normalized.nodes.forEach(node=>{if(node.type==='valve')delete node.open;});}
+    return JSON.stringify(normalized);
   }
   function dirty() {
     const current = normalizeProject(getProject());
-    return active ? JSON.stringify(current) !== active.snapshot : !!(current.nodes.length || current.edges.length || current.reference);
+    if(!active)return !!(current.nodes.length || current.edges.length || current.reference);
+    if(active.snapshot===null)return true;
+    const saved=JSON.parse(active.snapshot);
+    if(!isOperationMode())return comparison(current)!==comparison(saved);
+    if(comparison(current,true)!==comparison(saved,true))return true;
+    if(comparison(current)===comparison(saved))return false;
+    return !(current.operations||[]).some(operation=>operationMatches(current,operation));
   }
   function updateSubmit() {
     const updating = active && nameKey(input.value) === nameKey(active.name);
@@ -42,6 +56,7 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
     renaming = null;
     el('projectSaveLabel').textContent = '目前圖面名稱';
     el('cancelProjectRename').hidden = true;
+    el('projectSaveForm').hidden = isOperationMode();
     input.value = getProject().title || '';
     updateSubmit();
   }
@@ -96,6 +111,7 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
       actions.className = 'saved-project-actions';
       const rename = button('改名', () => {
         renaming = record;
+        el('projectSaveForm').hidden = false;
         el('projectSaveLabel').textContent = '新的圖面名稱';
         el('cancelProjectRename').hidden = false;
         input.value = record.name;
@@ -127,6 +143,7 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
   async function refresh() {
     records = await store.list();
     renderList();
+    onChange();
   }
   async function openSaved(id) {
     const record = await store.get(id);
@@ -138,7 +155,7 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
       dialog.close();
       notify(`已載入「${record.name}」`);
     };
-    if (dirty()) confirm(`載入「${record.name}」？`, '目前畫布有尚未存入儲存區的內容。載入會取代畫布；若要保留修改，請先取消並儲存圖面。', replace);
+    if (dirty()) confirm(`載入「${record.name}」？`, isOperationMode()?'目前仍有未儲存的調整，載入會取代畫布。要保留閥位請先儲存作業；管線變更請到編修圖面儲存。':'目前畫布有尚未存入儲存區的內容。載入會取代畫布；若要保留修改，請先取消並儲存圖面。', replace);
     else replace();
   }
   async function saveSnapshot(name, project, target) {
@@ -198,10 +215,23 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
       else {
         session++;
         active = {id:context.id, name:context.name, revision:context.revision, snapshot:null};
+        onChange();
       }
       sync();
     } catch {}
   }
+  async function updateOperations(operations,{requireDiagramMatch=true}={}) {
+    if(!active) throw new Error('請先選擇或儲存一張固定管線圖，再儲存作業。');
+    if(active.snapshot===null) throw new Error('管線圖已在其他分頁更新，請先重新載入最新圖面。');
+    if(requireDiagramMatch&&comparison(getProject(),true)!==comparison(JSON.parse(active.snapshot),true)) throw new Error('管線圖還有未儲存的版面修改，請先切到編修圖面並儲存管線圖。');
+    const target={...active},initialSession=session;
+    const record=await store.get(target.id);
+    const project=normalizeProject({...record.project,operations});
+    const saved=await store.save({id:target.id,name:record.name,project,expectedRevision:target.revision});
+    if(session===initialSession&&active?.id===target.id){activate(saved);onOperationsSaved(project.operations||[]);}
+    await refresh();
+    return saved;
+  }
   sync();
-  return {open, sync, detach, restore, context:() => active ? {id:active.id, name:active.name, revision:active.revision} : null};
+  return {open, sync, detach, restore, updateOperations, list:()=>store.list(), load:id=>openSaved(id), context:() => active ? {id:active.id, name:active.name, revision:active.revision} : null};
 }
