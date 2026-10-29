@@ -352,3 +352,80 @@ test('crossing pipe geometry does not connect independent fuel routes without a 
   assert.deepEqual(sorted(result.activeEdgeFuels.get('horizontal')), ['fuel']);
   assert.deepEqual(sorted(result.activeEdgeFuels.get('vertical')), ['diesel']);
 });
+
+test('an explicit pipe point supplies three or four connected branches from its single joint', () => {
+  for (const branchCount of [3, 4]) {
+    const nodes = [
+      { id: 'source', type: 'tank', fuel: 'diesel' },
+      { id: 'joint', type: 'point', x: 200, y: 200 },
+      ...Array.from({ length: branchCount }, (_, index) => ({ id: 'end' + index, type: 'outlet' })),
+    ];
+    const edges = [
+      pipe('feed', 'source:out', 'joint:joint'),
+      ...Array.from({ length: branchCount }, (_, index) => pipe('branch' + index, 'joint:joint', 'end' + index + ':in')),
+    ];
+    const result = computeFlow(nodes, edges);
+    assert.equal(result.activeEdges.size, branchCount + 1);
+    assert.deepEqual(sorted(result.activePortFuels.get('joint:joint')), ['diesel']);
+    for (const edge of edges) assert.deepEqual(sorted(result.activeEdgeFuels.get(edge.id)), ['diesel']);
+  }
+});
+
+test('closing a valve isolates every branch behind a pipe point while retaining its upstream color', () => {
+  const nodes = [
+    { id: 'source', type: 'tank', fuel: 'fuel' },
+    { id: 'v', type: 'valve', open: false },
+    { id: 'joint', type: 'point' },
+    { id: 'end1', type: 'outlet' }, { id: 'end2', type: 'cap' },
+  ];
+  const edges = [
+    pipe('feed', 'source:out', 'v:in'), pipe('downstream', 'v:out', 'joint:joint'),
+    pipe('branch1', 'joint:joint', 'end1:in'), pipe('branch2', 'joint:joint', 'end2:in'),
+  ];
+  const closed = computeFlow(nodes, edges);
+  assert.deepEqual(sorted(closed.activeEdges), ['feed']);
+  assert.deepEqual(sorted(closed.activePortFuels.get('v:in')), ['fuel']);
+  assert.equal(closed.activeNodeFuels.has('joint'), false);
+  assert.equal(closed.activePortFuels.has('v:out'), false);
+  nodes[1].open = true;
+  assert.equal(computeFlow(nodes, edges).activeEdges.size, 4);
+});
+
+test('coincident pipe points do not connect their independent fuel routes', () => {
+  const nodes = [
+    { id: 'source', type: 'tank', fuel: 'fuel' },
+    { id: 'supplied', type: 'point', x: 100, y: 100 },
+    { id: 'isolated', type: 'point', x: 100, y: 100 },
+    { id: 'end1', type: 'outlet' }, { id: 'end2', type: 'outlet' },
+  ];
+  const edges = [
+    pipe('feed', 'source:out', 'supplied:joint'), pipe('first', 'supplied:joint', 'end1:in'),
+    pipe('second', 'isolated:joint', 'end2:in'),
+  ];
+  const result = computeFlow(nodes, edges);
+  assert.deepEqual(sorted(result.activeEdges), ['feed', 'first']);
+  assert.equal(result.activePorts.has('isolated:joint'), false);
+  assert.equal(result.activeNodeFuels.has('end2'), false);
+});
+
+test('a riser valve keeps coincident inlet and outlet logically separate when closed', () => {
+  const nodes = [
+    { id: 'source', type: 'tank', fuel: 'diesel' },
+    { id: 'v', type: 'valve', variant: 'riser', open: false, x: 100, y: 100 },
+    { id: 'joint', type: 'point', x: 100, y: 100 },
+    { id: 'end', type: 'outlet' },
+  ];
+  const edges = [
+    pipe('feed', 'source:out', 'v:in'), pipe('riser-out', 'v:out', 'joint:joint'),
+    pipe('branch', 'joint:joint', 'end:in'),
+  ];
+  const closed = computeFlow(nodes, edges);
+  assert.deepEqual(sorted(closed.activeEdges), ['feed']);
+  assert.deepEqual(sorted(closed.activePortFuels.get('v:in')), ['diesel']);
+  assert.equal(closed.activePorts.has('v:out'), false);
+  assert.equal(closed.activeNodeFuels.has('joint'), false);
+  nodes[1].open = true;
+  const opened = computeFlow(nodes, edges);
+  assert.deepEqual(sorted(opened.activeEdges), ['branch', 'feed', 'riser-out']);
+  assert.deepEqual(sorted(opened.activeNodeFuels.get('end')), ['diesel']);
+});
