@@ -11,6 +11,7 @@ export function computeFlow(nodes, edges) {
     filter: ['in', 'out'],
     flowmeter: ['in', 'out'],
     pipe: ['in', 'out'],
+    point: ['joint'],
     cap: ['in'],
     junction: ['in', 'out', 'branch'],
     cross: ['in', 'out', 'branch', 'top'],
