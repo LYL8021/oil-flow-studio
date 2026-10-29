@@ -75,7 +75,7 @@ function operationTopology(project) {
   if (!project || !Array.isArray(project.nodes) || !Array.isArray(project.edges) || project.nodes.length > 400 || project.edges.length > 1600) {
     throw operationProblem('invalid-project', '管線圖的元件或連接資料無效。');
   }
-  const nodeIds = new Set(), edgeIds = new Set();
+  const nodeIds = new Set(), hydraulicNodeIds = new Set(), edgeIds = new Set();
   const nodes = project.nodes.map(node => {
     if (!node || !validOperationId(node.id) || nodeIds.has(node.id) || typeof node.type !== 'string' || !node.type || node.type.length > 40) {
       throw operationProblem('invalid-project', '管線圖有無效或重複的元件編號。');
@@ -84,10 +84,12 @@ function operationTopology(project) {
       throw operationProblem('invalid-project', '目前閥門的開關資料無效。');
     }
     nodeIds.add(node.id);
+    if (node.type === 'text') return null;
+    hydraulicNodeIds.add(node.id);
     return [node.id, node.type, node.type === 'valve' ? String(node.code ?? '') : ''];
-  });
+  }).filter(Boolean);
   const edges = project.edges.map(edge => {
-    const endpointValid = endpoint => endpoint && nodeIds.has(endpoint.node) && typeof endpoint.port === 'string' && endpoint.port.length > 0 && endpoint.port.length <= 100;
+    const endpointValid = endpoint => endpoint && hydraulicNodeIds.has(endpoint.node) && typeof endpoint.port === 'string' && endpoint.port.length > 0 && endpoint.port.length <= 100;
     if (!edge || !validOperationId(edge.id) || edgeIds.has(edge.id) || !endpointValid(edge.from) || !endpointValid(edge.to)) {
       throw operationProblem('invalid-project', '管線圖有無效或重複的連接資料。');
     }
@@ -102,7 +104,8 @@ function operationTopology(project) {
 export function topologySignature(project) {
   // Keep the canonical topology itself, so compatibility has no hash collision.
   // Coordinates, display names, oil/source settings, and routing styles are
-  // deliberately excluded; component identity, valve codes, and connections stay.
+  // deliberately excluded; annotations have no hydraulic ports and are excluded
+  // entirely. Hydraulic component identity, valve codes, and connections stay.
   return operationSignaturePrefix + JSON.stringify(operationTopology(project));
 }
 

@@ -23,3 +23,18 @@ body[data-workspace="edit"] #canvas .port:focus-visible { opacity: 1; r: 7; }
 .pipe-point.active .joint-dot { fill:var(--fluid-line,var(--orange)); }
 .pipe-point.selected .joint-hit { stroke:var(--orange); stroke-width:1; stroke-dasharray:3 2; }
 @media(max-width:560px){.draw-pipe-button{min-height:30px;padding:6px 10px;margin:0 0 8px;width:auto}.draw-pipe-help{display:none}.legacy-components{margin:8px 0 0;max-height:130px;overflow:auto}.legacy-components summary{font-size:10px;padding:3px}.legacy-components[open] .component-list{margin-top:5px}.finish-pipe-button{top:52px;right:10px;font-size:10px;padding:7px 9px}}
+
+.text-mark-content { pointer-events:none; }
+.text-mark-selection { display:none; }
+.text-mark.selected .text-mark-selection { display:block; stroke:var(--orange); stroke-width:1; stroke-dasharray:4 3; }
+.text-color-row { display:flex; align-items:center; gap:8px; }
+.field .text-color-row input[type="color"] { width:50px; height:35px; padding:3px; flex-shrink:0; }
+.text-color-row .button { padding:8px 10px; font-size:10px; }
+.text-bold-field { display:flex; align-items:center; gap:8px; margin:17px 0; font-size:11px; }
+.text-bold-field input { accent-color:var(--orange); }
+.node-identifier { font-size:11px; }
+
+/* Wider jump and underlay leave a clearer gap around the lower crossing pipe. */
+.pipe.bridge > .pipe-border { stroke-width:16; }
+.pipe.bridge.selected > .pipe-border,
+.node.selected .standalone-pipe.bridge > .pipe-border { stroke-width:18; }

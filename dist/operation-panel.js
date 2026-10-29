@@ -1,4 +1,4 @@
-import {captureOperation,applyOperation,operationMatches,normalizeOperations,topologySignature} from './operations.js?v=operations-1';
+import {captureOperation,applyOperation,operationMatches,normalizeOperations,topologySignature} from './operations.js?v=text-1';
 
 export function setupOperationPanel({getProject,getMode,library,apply,edit,operate,confirm,notify}) {
   const el=id=>document.getElementById(id),dialog=el('operationDialog');

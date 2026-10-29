@@ -1,6 +1,6 @@
 /** Draw oil pipes at arbitrary angles; bridge marks never imply hydraulic connections. */
 const EPSILON = 0.001;
-const BRIDGE_RADIUS = 9;
+const BRIDGE_RADIUS = 14;
 const BRIDGE_CLEARANCE = BRIDGE_RADIUS + 3;
 const QUARTER_CIRCLE = 0.55228475;
 

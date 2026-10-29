@@ -1,5 +1,5 @@
 import {createProjectStore} from './project-store.js?v=operations-1';
-import {operationMatches} from './operations.js?v=operations-1';
+import {operationMatches} from './operations.js?v=text-1';
 
 export function setupProjectLibrary({getProject, normalizeProject, setProject, setTitle, confirm, notify, downloadProject, isOperationMode=()=>false, onChange=()=>{}, onOperationsSaved=()=>{}}) {
   const el = id => document.getElementById(id);

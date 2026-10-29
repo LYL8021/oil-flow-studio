@@ -119,3 +119,61 @@ test('legacy missing open flags use the same open-by-default behavior as the flo
   assert.equal(captured.valves.find(valve=>valve.id==='v1').open,true);
   assert.equal(operationMatches(diagram,captured),true);
 });
+
+
+test('text annotations do not invalidate valve presets when added, edited, moved or removed', () => {
+  const original=project(), captured=operation(original), signature=topologySignature(original);
+  const annotated=clone(original);
+  annotated.nodes.push({id:'label1',type:'text',text:'往通霄\n12 吋管線',x:400,y:150,fontSize:24,textColor:'#ff8800',textAlign:'middle',bold:true,rotation:45});
+  assert.equal(topologySignature(annotated),signature);
+  assert.equal(operationMatches(annotated,captured),true);
+  const label=annotated.nodes.at(-1);
+  label.text='往台中油庫';label.x=-50;label.y=300;label.fontSize=36;label.rotation=180;label.code='註記';
+  assert.equal(topologySignature(annotated),signature);
+  annotated.nodes[1].open=true;annotated.nodes[2].open=false;
+  const before=clone(annotated), applied=applyOperation(annotated,captured);
+  assert.deepEqual(applied.nodes.at(-1),label);
+  assert.notEqual(applied.nodes.at(-1),label);
+  assert.equal(applied.nodes[1].open,false);assert.equal(applied.nodes[2].open,true);
+  assert.deepEqual(annotated,before);
+  annotated.nodes.pop();
+  assert.equal(topologySignature(annotated),signature);
+  assert.equal(operationMatches(applyOperation(annotated,captured),captured),true);
+  annotated.edges[0].to={node:'v2',port:'in'};
+  assert.throws(()=>applyOperation(annotated,captured),{code:'incompatible'});
+});
+
+test('annotation-only diagrams have no valve topology and can preserve empty valve operations', () => {
+  const empty={nodes:[],edges:[]}, captured=captureOperation(empty,{id:'empty',name:'空圖'});
+  const annotated={nodes:[{id:'label',type:'text',text:'站名',x:0,y:0}],edges:[]};
+  assert.equal(topologySignature(annotated),topologySignature(empty));
+  assert.deepEqual(captured.valves,[]);
+  assert.equal(operationMatches(annotated,captured),true);
+  assert.deepEqual(applyOperation(annotated,captured),annotated);
+});
+
+test('annotations retain identifier validation and cannot become hydraulic endpoints', () => {
+  const source=project(), captured=operation(source);
+  for(const labels of [
+    [{id:'v1',type:'text',text:'重複元件編號'}],
+    [{id:'label',type:'text'},{id:'label',type:'text'}],
+    [{id:'bad/id',type:'text'}]
+  ]){
+    const invalid=clone(source);invalid.nodes.push(...labels);
+    assert.throws(()=>topologySignature(invalid),{code:'invalid-project'});
+  }
+  for(const side of ['from','to']){
+    const invalid=clone(source);invalid.nodes.push({id:'label',type:'text',text:'不是接點'});
+    invalid.edges[0][side]={node:'label',port:'joint'};
+    const before=clone(invalid);
+    assert.throws(()=>applyOperation(invalid,captured),{code:'invalid-project'});
+    assert.deepEqual(invalid,before);
+  }
+});
+
+test('pre-annotation diagrams retain their exact topology-v1 canonical representation', () => {
+  assert.equal(topologySignature(project()),'topology-v1:'+JSON.stringify({
+    nodes:[['end','outlet',''],['tank','tank',''],['v1','valve','V-01'],['v2','valve','V-02']],
+    edges:[['e1','tank','out','v1','in'],['e2','v1','out','v2','in'],['e3','v2','out','end','in']]
+  }));
+});

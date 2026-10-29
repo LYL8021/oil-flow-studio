@@ -1,11 +1,12 @@
 /**
- * Determine which ports and fuel types can be reached from enabled tanks.
+ * Determine which ports and fuel types can be reached from enabled oil sources.
  * This is connectivity visualization, not pressure or flow-rate calculation.
  * External pipes are bidirectional; a closed valve separates its two ports.
  */
 export function computeFlow(nodes, edges) {
   const portsByType = {
     tank: ['out'],
+    ground: ['port'],
     valve: ['in', 'out'],
     elbow: ['in', 'out'],
     filter: ['in', 'out'],
@@ -61,10 +62,13 @@ export function computeFlow(nodes, edges) {
     queue.push({ port, fuel });
   };
   for (const node of nodes) {
-    if (node.type !== 'tank' || node.enabled === false) continue;
-    const source = key(node.id, 'out');
+    const tankSource = node.type === 'tank' && node.enabled !== false;
+    // Ground endpoints supply only when explicitly enabled; appearance never infers a source.
+    const groundSource = node.type === 'ground' && node.enabled === true;
+    if (!tankSource && !groundSource) continue;
+    const source = key(node.id, groundSource ? 'port' : 'out');
     // Legacy projects and unrecognized fuel values retain the original fuel oil.
-    reach(source, node.fuel === 'diesel' ? 'diesel' : 'fuel');
+    reach(source, node.fuel === 'diesel' || node.fuel === 'gasoline' ? node.fuel : 'fuel');
   }
   for (let index = 0; index < queue.length; index += 1) {
     const { port, fuel } = queue[index];
