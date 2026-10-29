@@ -11,7 +11,7 @@ for name in ['style.css', 'dark.css', 'fuels.css', 'image-import.css', 'project-
 html = re.sub(r'<link rel="stylesheet" href="[^\"]+">', '', html)
 html = html.replace('</head>', '<style>' + '\n'.join(styles) + '</style></head>')
 modules = []
-for filename, export in [('flow.js', 'computeFlow'), ('pipes.js', 'pipePath'), ('symbols.js', 'referenceSymbol'), ('image-draft.js', 'analyzeImage,readImage'), ('project-store.js', 'createProjectStore'), ('operations.js', 'normalizeOperations,captureOperation,applyOperation,operationMatches,topologySignature'), ('project-library.js', 'setupProjectLibrary'), ('operation-panel.js', 'setupOperationPanel')]:
+for filename, export in [('flow.js', 'computeFlow'), ('pipes.js', 'pipePath'), ('symbols.js', 'referenceSymbol'), ('image-draft.js', 'analyzeImage,readImage'), ('reference-layout.js', 'normalizeReference,transformReference'), ('project-store.js', 'createProjectStore'), ('operations.js', 'normalizeOperations,captureOperation,applyOperation,operationMatches,topologySignature'), ('project-library.js', 'setupProjectLibrary'), ('operation-panel.js', 'setupOperationPanel')]:
     source = re.sub(r'^import[^\n]+\n', '', (root / 'dist' / filename).read_text(), flags=re.M).replace('export ', '')
     modules.append('const {' + export + '} = (()=>{\n' + source + '\nreturn {' + export + '};\n})();')
 app = re.sub(r'^import[^\n]+\n', '', (root / 'dist/app.js').read_text(), flags=re.M)

@@ -13,6 +13,28 @@
 #referenceLayer { pointer-events: none; }
 .reference-image { pointer-events: none; filter: none; }
 
+/* Resize the tracing surface independently from the symbol sizes. */
+.reference-controls { flex-wrap: wrap; justify-content: flex-end; }
+#refLayoutBtn { border: 1px solid var(--line); }
+.reference-layout-dialog { max-width: 520px; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; }
+.reference-layout-dialog h2 { font-size: 22px; line-height: 1.5; }
+.reference-layout-intro { margin: 9px 0 21px; color: #7b8898; font-size: 12px; line-height: 1.9; }
+.reference-scale-row { display: flex; align-items: center; gap: 9px; color: #7a8797; font-size: 12px; }
+#referenceScale { width: 110px; min-width: 0; padding: 10px 11px; background: #fafbfc; border: 1px solid #e0e6ed; border-radius: 5px; color: #596271; outline: none; }
+#referenceScale:focus { border-color: #c2936e; }
+.reference-size-presets { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.reference-size-presets button { min-height: 34px; padding: 6px 11px; border: 1px solid #e0e6ed; border-radius: 5px; color: #6e7e92; font-size: 11px; }
+.reference-size-presets button[aria-pressed="true"] { border-color: #c2936e; background: #fff8ef; color: #94704b; }
+.reference-size-info { color: #8b97a6; font-size: 10px; line-height: 1.8; margin: 11px 0 18px; overflow-wrap: anywhere; }
+.reference-position-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.reference-position-row .field { margin: 0 0 18px; min-width: 0; }
+.reference-layout-checkbox { display: flex; align-items: flex-start; gap: 9px; color: #6e7e92; font-size: 11px; line-height: 1.9; cursor: pointer; }
+.reference-layout-checkbox input { width: 15px; height: 15px; margin: 3px 0 0; accent-color: #bc875e; flex-shrink: 0; }
+.reference-layout-note { margin: 13px 0 0; padding: 11px 12px; border: 1px solid #eadcc9; border-radius: 6px; background: #fff9ef; color: #927553; font-size: 10px; line-height: 1.9; }
+#referenceLayoutMessage { margin: 11px 0 0; color: #b56650; font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+#referenceLayoutMessage:empty { display: none; }
+.reference-layout-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 9px; margin-top: 21px; padding-top: 17px; border-top: 1px solid var(--line); }
+
 .image-dialog { max-width: 740px; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; }
 .image-dialog h2 { font-size: 22px; line-height: 1.5; }
 .image-dialog-intro { color: #84909e; font-size: 12px; line-height: 1.9; margin: 9px 0 20px; }
@@ -68,6 +90,16 @@
 [data-theme="dark"] .reference-controls button[aria-pressed="true"] { background: #394555; color: #d7e2ef; }
 [data-theme="dark"] .reference-opacity { color: #adbacb; }
 [data-theme="dark"] .reference-image { filter: grayscale(1) invert(1); }
+[data-theme="dark"] .reference-layout-intro,
+[data-theme="dark"] .reference-scale-row,
+[data-theme="dark"] .reference-layout-checkbox { color: #b1bed0; }
+[data-theme="dark"] #referenceScale { background: #171e28; border-color: #404c5d; color: #d2dce9; }
+[data-theme="dark"] #referenceScale:focus { border-color: #d69970; }
+[data-theme="dark"] .reference-size-presets button { border-color: #455267; color: #c5d2e4; }
+[data-theme="dark"] .reference-size-presets button[aria-pressed="true"] { border-color: #a28460; background: #2c2822; color: #d1b990; }
+[data-theme="dark"] .reference-size-info { color: #adbacb; }
+[data-theme="dark"] .reference-layout-note { background: #2c2822; border-color: #544632; color: #d0b692; }
+[data-theme="dark"] #referenceLayoutMessage { color: #e6a58e; }
 [data-theme="dark"] .image-dialog-intro,
 [data-theme="dark"] #imageStatus,
 [data-theme="dark"] .image-import-notes,
@@ -117,6 +149,13 @@
   .reference-opacity { gap: 4px; }
   .reference-opacity > span { display: none; }
   .reference-opacity input { width: 65px; }
+  .reference-layout-dialog { padding: 22px 18px; }
+  .reference-layout-dialog h2 { font-size: 19px; }
+  .reference-layout-intro { font-size: 11px; margin-bottom: 18px; }
+  .reference-position-row { gap: 9px; }
+  .reference-size-presets { gap: 6px; }
+  .reference-size-presets button { flex: 1; padding-left: 7px; padding-right: 7px; }
+  .reference-layout-actions .button { flex: 1; padding-left: 10px; padding-right: 10px; }
   .image-dialog { padding: 22px 18px; }
   .image-dialog h2 { font-size: 19px; }
   .image-dialog-intro { font-size: 11px; }
