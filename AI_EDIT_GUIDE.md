@@ -21,6 +21,7 @@
 
 - `dist/index.html`：頁面；`dist/app.js`：操作與存檔；`dist/*.css`：外觀。
 - `dist/flow.js`：通油；`dist/pipes.js`：管線幾何；`dist/symbols.js`：元件圖示。
+- `dist/pipe-runs.js`：連續畫管及明確接管；`dist/pipe-order.js`：交叉層級；`dist/text-marks.js`：文字標記；`dist/operations.js`：閥位作業相容。
 - `dist/image-draft.js`、`dist/vendor/ocr/`：圖片候選辨識、模型與 WASM；保留完整資源及授權。候選須人工確認，不會自動接好管線。
 - `tests/`：通油與管線測試；`scripts/package-offline.py`：更新離線下載成品。
 

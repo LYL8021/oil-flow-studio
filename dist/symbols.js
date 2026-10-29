@@ -8,10 +8,22 @@ export function referenceSymbol(type, { fill, active = true, open = true, varian
     return `<g class="reference-tank"><circle r="46" fill="${bodyFill}"/><path d="M46 0h4" fill="none"/></g>`;
   }
 
+  if (type === 'ground') {
+    const sinking = variant === 'sink';
+    // One surface connection; the short lower leg denotes the buried continuation.
+    const pipe = sinking ? 'M-36 0H4Q14 0 14 10V36' : 'M-14 36V10Q-14 0-4 0H36';
+    const surface = sinking
+      ? 'M-40 18H6m16 0h18M-35 18l-7 8m19-8-7 8m19-8-7 8m44-8-7 8m19-8-7 8'
+      : 'M-40 18h18m16 0h46M-35 18l-7 8m19-8-7 8m31-8-7 8m19-8-7 8m19-8-7 8';
+    const arrow = sinking ? 'M28 8v24m-5-6 5 6 5-6' : 'M-28 32V8m-5 6 5-6 5 6';
+    const flange = sinking ? 'M-30-7V7' : 'M30-7V7';
+    return `<g class="reference-ground ground-${sinking ? 'sink' : 'rise'}"><path d="${surface}" fill="none" stroke-width="1.3" opacity=".55"/><path d="${pipe}" fill="none" stroke="var(--diagram-surface)" stroke-width="12"/><path d="${pipe}" fill="none" stroke-width="8"/><path d="${pipe}" fill="none" stroke="${bodyFill}" stroke-width="4"/><path d="${flange}" fill="none" stroke-width="1.8"/><path d="${arrow}" fill="none" stroke-width="1.8"/></g>`;
+  }
+
   if (type === 'valve') {
     if (variant === 'riser') {
       // End view of an above-ground riser: bolted flange and diagonal handwheel.
-      // The two external ports remain on the local horizontal pipe axis.
+      // The caller presents one center handle while preserving two logical valve sides.
       const bolts = Array.from({ length: 8 }, (_, index) => {
         const angle = (index * 45 + 22.5) * Math.PI / 180;
         const x = (18.5 * Math.cos(angle)).toFixed(2);

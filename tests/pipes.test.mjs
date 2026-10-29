@@ -9,8 +9,8 @@ const finite = path => assert.doesNotMatch(path, /NaN|Infinity|undefined/);
 test('interior perpendicular crossing draws one semicircular bridge', () => {
   const path = pipePath(line(0, 0, 100, 0), [line(50, -50, 50, 50)]);
   assert.equal(count(path, 'C'), 2);
-  assert.match(path, /^M0 0L41 0C/);
-  assert.match(path, /50 -9C/);
+  assert.match(path, /^M0 0L36 0C/);
+  assert.match(path, /50 -14C/);
   assert.match(path, /L100 0$/);
   finite(path);
 });
@@ -21,13 +21,24 @@ test('shared endpoints, T contacts, nearby corners, and parallel lines do not re
   }
 });
 
+test('larger bridges keep clearance at pipe ends and skip segments too short to fit', () => {
+  assert.equal(pipePath(line(0, 0, 100, 0), [line(16, -50, 16, 50)]), 'M0 0L100 0');
+  const nearEnd = pipePath(line(0, 0, 100, 0), [line(18, -50, 18, 50)]);
+  assert.equal(count(nearEnd, 'C'), 2);
+  assert.match(nearEnd, /^M0 0L4 0C/);
+  assert.match(nearEnd, /L100 0$/);
+  assert.equal(pipePath(line(0, 0, 32, 0), [line(16, -50, 16, 50)]), 'M0 0L32 0');
+  assert.equal(count(pipePath(line(0, 0, 36, 0), [line(18, -50, 18, 50)]), 'C'), 2);
+  finite(nearEnd);
+});
+
 test('reversed traversal keeps horizontal humps above and vertical humps right', () => {
   const horizontal = pipePath(line(100, 0, 0, 0), [line(50, -50, 50, 50)]);
   const vertical = pipePath(line(0, 100, 0, 0), [line(-50, 50, 50, 50)]);
-  assert.match(horizontal, /^M100 0L59 0C/);
-  assert.match(horizontal, /50 -9C/);
-  assert.match(vertical, /^M0 100L0 59C/);
-  assert.match(vertical, /9 50C/);
+  assert.match(horizontal, /^M100 0L64 0C/);
+  assert.match(horizontal, /50 -14C/);
+  assert.match(vertical, /^M0 100L0 64C/);
+  assert.match(vertical, /14 50C/);
   assert.match(vertical, /L0 0$/);
 });
 
@@ -65,8 +76,8 @@ test('empty, repeated, very short, and invalid geometry remains finite', () => {
 test('diagonal crossings produce rotated semicircular bridges', () => {
   const path = pipePath(line(0, 0, 100, 100), [line(0, 100, 100, 0)]);
   assert.equal(count(path, 'C'), 2);
-  assert.match(path, /^M0 0L43\.636 43\.636C/);
-  assert.match(path, /56\.364 43\.636C/);
+  assert.match(path, /^M0 0L40\.101 40\.101C/);
+  assert.match(path, /59\.899 40\.101C/);
   assert.match(path, /L100 100$/);
   finite(path);
 });
@@ -92,7 +103,7 @@ test('reversing a diagonal preserves the physical bridge and its perpendicular s
     return [...new Set(pairs)].sort();
   };
   assert.deepEqual(coordinates(forward), coordinates(reverse));
-  assert.match(reverse, /56\.364 43\.636C/);
+  assert.match(reverse, /59\.899 40\.101C/);
   finite(reverse);
 });
 

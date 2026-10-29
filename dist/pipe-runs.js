@@ -1,6 +1,6 @@
 /* Continuous drawing commits one explicit graph change; visual crossings stay separate. */
 const runPorts = {
-  point: ['joint'], tank: ['out'], valve: ['in', 'out'], elbow: ['in', 'out'],
+  point: ['joint'], ground: ['port'], text: [], tank: ['out'], valve: ['in', 'out'], elbow: ['in', 'out'],
   filter: ['in', 'out'], flowmeter: ['in', 'out'], pipe: ['in', 'out'],
   cap: ['in'], junction: ['in', 'out', 'branch'],
   cross: ['in', 'out', 'branch', 'top'], outlet: ['in']

@@ -5,6 +5,11 @@
   --diesel-fill: #e8f6fd;
   --diesel-oil: #abdff5;
   --diesel-detail: #c5e4f2;
+  --gasoline-line: #59b88c;
+  --gasoline-symbol: #418b69;
+  --gasoline-fill: #e8f7ef;
+  --gasoline-oil: #a6ddc1;
+  --gasoline-detail: #c0e7d3;
 }
 :root[data-theme="dark"] {
   --diesel-line: #8bd1f4;
@@ -12,6 +17,11 @@
   --diesel-fill: #20343f;
   --diesel-oil: #608fa7;
   --diesel-detail: #567c91;
+  --gasoline-line: #8edbb5;
+  --gasoline-symbol: #a2dfbf;
+  --gasoline-fill: #20382e;
+  --gasoline-oil: #669c80;
+  --gasoline-detail: #527c67;
 }
 .fluid-diesel {
   --fluid-line: var(--diesel-line);
@@ -25,19 +35,59 @@
 .node.active.fluid-diesel .port.active { stroke: var(--fluid-line); }
 .flow-line.diesel { background: var(--diesel-line); }
 
-/* Mixed supply retains the orange base and adds a distinct blue dash pattern. */
-.pipe-secondary {
+/* Each mixed route shows only its reachable oil types, without a mixing ratio. */
+.fluid-gasoline {
+  --fluid-line: var(--gasoline-line);
+  --fluid-symbol: var(--gasoline-symbol);
+  --fluid-fill: var(--gasoline-fill);
+  --fluid-oil: var(--gasoline-oil);
+  --fluid-detail: var(--gasoline-detail);
+}
+.pipe.active.fluid-gasoline .pipe-line { stroke: var(--fluid-line); }
+.node.active.fluid-gasoline .node-symbol { color: var(--fluid-symbol); }
+.node.active.fluid-gasoline .port.active,
+.node .port.fluid-gasoline.active { stroke: var(--gasoline-line); }
+.flow-line.gasoline { background: var(--gasoline-line); }
+
+.fluid-mixed {
+  --mixed-base: var(--orange);
+  --mixed-secondary: var(--diesel-line);
+  --mixed-tertiary: var(--gasoline-line);
+  --fluid-line: var(--mixed-base);
+  --fluid-symbol: var(--mixed-base);
+}
+.fluid-mixed.mix-fuel-gasoline { --mixed-secondary: var(--gasoline-line); }
+.fluid-mixed.mix-diesel-gasoline {
+  --mixed-base: var(--diesel-line);
+  --mixed-secondary: var(--gasoline-line);
+  --fluid-symbol: var(--diesel-symbol);
+  --fluid-fill: var(--diesel-fill);
+  --fluid-oil: var(--diesel-oil);
+  --fluid-detail: var(--diesel-detail);
+}
+.pipe-secondary,
+.pipe-tertiary {
   display: none;
   fill: none;
-  stroke: var(--diesel-line);
   stroke-width: 5;
   stroke-dasharray: 12 12;
   stroke-linecap: butt;
   stroke-linejoin: round;
   pointer-events: none;
 }
+.pipe-secondary { stroke: var(--mixed-secondary, var(--diesel-line)); }
+.pipe-tertiary { stroke: var(--mixed-tertiary, var(--gasoline-line)); }
 .pipe.active.fluid-mixed .pipe-secondary { display: inline; }
-.pipe.active.fluid-mixed .pipe-line { stroke: var(--orange); }
+.pipe.active.fluid-mixed .pipe-line { stroke: var(--mixed-base); }
+.pipe.active.fluid-mixed.mix-all .pipe-secondary {
+  stroke-dasharray: 12 24;
+  stroke-dashoffset: -12;
+}
+.pipe.active.fluid-mixed.mix-all .pipe-tertiary {
+  display: inline;
+  stroke-dasharray: 12 24;
+  stroke-dashoffset: -24;
+}
 .fuel-mixed-indicator { font-size: 9px; fill: var(--diagram-subtle); }
 
 .fuel-label,
@@ -47,6 +97,7 @@
 .fuel-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; display: inline-block; }
 .fuel-dot.fuel { background: var(--orange); }
 .fuel-dot.diesel { background: var(--diesel-line); }
+.fuel-dot.gasoline { background: var(--gasoline-line); }
 .fuel-select {
   display: block;
   width: 100%;
@@ -94,6 +145,19 @@
 .node .port.fluid-diesel.active { stroke: var(--diesel-line); }
 .pipe.underground .pipe-line { stroke-dasharray: 12 7; }
 .pipe.underground .pipe-secondary { stroke-dasharray: 6 13; stroke-dashoffset: -6; }
+/* Three supplies underground use three coloured dashes with visible ground gaps. */
+.pipe.active.underground.fluid-mixed.mix-all .pipe-line {
+  stroke-dasharray: 12 45;
+  stroke-dashoffset: 0;
+}
+.pipe.active.underground.fluid-mixed.mix-all .pipe-secondary {
+  stroke-dasharray: 12 45;
+  stroke-dashoffset: -19;
+}
+.pipe.active.underground.fluid-mixed.mix-all .pipe-tertiary {
+  stroke-dasharray: 12 45;
+  stroke-dashoffset: -38;
+}
 .pipe.underground .flow-dashes { display: none; }
 .mixed-note { margin: 12px 0 0; line-height: 1.8; }
 @media (max-width: 800px) {
@@ -125,3 +189,7 @@
  .canvas-toolbar .tools { gap: 0; }
  .canvas-toolbar .tools .tool { width: 25px; }
 }
+
+/* A mixed node uses its representative palette; individual ports keep their own fuels. */
+.node.active.fluid-mixed .node-symbol { color:var(--fluid-symbol); }
+.node .port.fluid-mixed.active { stroke:var(--mixed-base); }

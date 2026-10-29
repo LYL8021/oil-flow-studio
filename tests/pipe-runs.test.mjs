@@ -103,3 +103,73 @@ test('failed split, malformed coordinates and quantity limits leave no orphan no
  assert.throws(()=>run(crowded,canvas(0,100),canvas(100,100),[{x:0,y:100},{x:100,y:100}]),/最多支援/);
  assert.deepEqual(crowded,crowdedBefore);
 });
+
+test('ground endpoints connect through a valve without extra points or lost station metadata',()=>{
+ const source={nodes:[
+  {id:'rise',type:'ground',variant:'rise',x:0,y:0,name:'出土端',code:'G-1',station:'通霄中繼站',enabled:true,fuel:'diesel'},
+  {id:'valve',type:'valve',x:200,y:0,open:false},
+  {id:'sink',type:'ground',variant:'sink',x:400,y:0,name:'入土端',code:'G-2',station:'台中供油中心',enabled:false,fuel:'fuel'}
+ ],edges:[],metadata:{preserve:'原註記'}};
+ const before=structuredClone(source);let sequence=0;const idFactory=prefix=>prefix+'ground'+(++sequence);
+ const upstream=run(source,port('rise','port'),port('valve','in'),[{x:36,y:0},{x:164,y:0}],{idFactory});
+ const downstream=run(upstream.project,port('valve','out'),port('sink','port'),[{x:236,y:0},{x:364,y:0}],{kind:'underground',idFactory});
+ assert.deepEqual(source,before);assert.deepEqual(downstream.project.nodes,source.nodes);
+ assert.equal(downstream.project.edges.length,2);
+ assert.deepEqual(downstream.project.edges.map(edge=>[edge.from,edge.to]),[
+  [port('rise','port'),port('valve','in')],[port('valve','out'),port('sink','port')]
+ ]);
+ assert.equal(downstream.project.edges[1].kind,'underground');
+ assert.deepEqual(downstream.project.metadata,source.metadata);
+});
+
+test('splitting a ground-fed pipe preserves station, source settings, and pipe metadata',()=>{
+ const source={nodes:[
+  {id:'rise',type:'ground',variant:'rise',x:0,y:0,station:'通霄中繼站',enabled:true,fuel:'diesel'},
+  {id:'sink',type:'ground',variant:'sink',x:400,y:0,station:'油庫',enabled:false,fuel:'fuel'}
+ ],edges:[{id:'groundMain',from:port('rise','port'),to:port('sink','port'),kind:'underground',routing:'free',waypoints:[],layer:3}],operations:[{preserve:'原作業'}]};
+ const before=structuredClone(source);
+ const {project,edgeId}=run(source,{edge:'groundMain',point:{x:200,y:0},path:[{x:36,y:0},{x:364,y:0}]},canvas(200,200),[{x:200,y:0},{x:200,y:200}]);
+ assert.deepEqual(source,before);assert.equal(project.edges.length,3);
+ for(const id of ['rise','sink'])assert.deepEqual(project.nodes.find(node=>node.id===id),source.nodes.find(node=>node.id===id));
+ assert.deepEqual(project.operations,source.operations);
+ for(const edge of project.edges.filter(edge=>edge.id!==edgeId)){
+  assert.equal(edge.kind,'underground');assert.equal(edge.layer,3);
+ }
+});
+
+test('invalid ground port rejects atomically, including when another pipe would have been split',()=>{
+ const source={nodes:[
+  {id:'rise',type:'ground',variant:'rise',x:0,y:0,station:'通霄中繼站',enabled:true,fuel:'diesel'},
+  {id:'sink',type:'ground',variant:'sink',x:400,y:0,station:'油庫',enabled:false,fuel:'fuel'}
+ ],edges:[{id:'groundMain',from:port('rise','port'),to:port('sink','port'),routing:'free',waypoints:[]}]};
+ const before=structuredClone(source);
+ for(const attempt of [
+  ()=>run(source,port('rise','out'),canvas(200,200),[{x:36,y:0},{x:200,y:200}]),
+  ()=>run(source,{edge:'groundMain',point:{x:200,y:0},path:[{x:36,y:0},{x:364,y:0}]},port('sink','in'),[{x:200,y:0},{x:364,y:0}])
+ ]){assert.throws(attempt,/接點無效/);assert.deepEqual(source,before);}
+});
+
+test('text annotations remain unchanged during pipe drawing and branching',()=>{
+ const annotation={id:'note',type:'text',x:120,y:80,name:'往台中供油',code:'',text:'柴油作業\n請確認閥位',fontSize:18,rotation:35,color:'#aabbcc'};
+ const source={nodes:[{...tank},{...outlet},annotation],edges:[]};
+ const before=structuredClone(source);let sequence=0;const idFactory=prefix=>prefix+'label'+(++sequence);
+ const drawn=run(source,port('tank','out'),port('out','in'),[{x:50,y:0},{x:467,y:0}],{idFactory});
+ assert.deepEqual(drawn.project.nodes.find(node=>node.id==='note'),annotation);
+ const branched=run(drawn.project,{edge:drawn.edgeId,point:{x:200,y:0},path:[{x:50,y:0},{x:467,y:0}]},canvas(200,200),[{x:200,y:0},{x:200,y:200}],{idFactory});
+ assert.deepEqual(branched.project.nodes.find(node=>node.id==='note'),annotation);
+ assert.equal(branched.project.edges.length,3);assert.deepEqual(source,before);
+});
+
+test('text annotations cannot become pipe endpoints and rejection is atomic',()=>{
+ const source={nodes:[{...tank},{id:'note',type:'text',x:200,y:100,text:'此處不接管',fontSize:16}],edges:[]};
+ const before=structuredClone(source);
+ for(const side of ['port','in','out','joint']){
+  assert.throws(()=>run(source,port('tank','out'),port('note',side),[{x:50,y:0},{x:200,y:100}]),/接點無效/);
+  assert.deepEqual(source,before);
+ }
+ const connected=run(source,port('tank','out'),canvas(400,0),[{x:50,y:0},{x:400,y:0}]).project;
+ const connectedBefore=structuredClone(connected);
+ let sequence=0;const idFactory=prefix=>prefix+'textreject'+(++sequence);
+ assert.throws(()=>run(connected,{edge:connected.edges[0].id,point:{x:200,y:0},path:[{x:50,y:0},{x:400,y:0}]},port('note','port'),[{x:200,y:0},{x:200,y:100}],{idFactory}),/接點無效/);
+ assert.deepEqual(connected,connectedBefore);
+});

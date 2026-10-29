@@ -429,3 +429,181 @@ test('a riser valve keeps coincident inlet and outlet logically separate when cl
   assert.deepEqual(sorted(opened.activeEdges), ['branch', 'feed', 'riser-out']);
   assert.deepEqual(sorted(opened.activeNodeFuels.get('end')), ['diesel']);
 });
+
+
+test('an enabled ground rise supplies fuel through a valve to a passive ground sink', () => {
+  for (const fuel of ['fuel', 'diesel']) {
+    const nodes = [
+      { id: 'upstream', type: 'ground', variant: 'rise', enabled: true, fuel },
+      { id: 'v', type: 'valve', open: true },
+      { id: 'downstream', type: 'ground', variant: 'sink', enabled: false, fuel: fuel === 'fuel' ? 'diesel' : 'fuel' },
+    ];
+    const edges = [pipe('up', 'upstream:port', 'v:in'), pipe('down', 'v:out', 'downstream:port')];
+    const opened = computeFlow(nodes, edges);
+    assert.deepEqual(sorted(opened.activeEdges), ['down', 'up']);
+    assert.deepEqual(sorted(opened.activeNodeFuels.get('downstream')), [fuel]);
+    assert.deepEqual(sorted(opened.activePortFuels.get('upstream:port')), [fuel]);
+    nodes[1].open = false;
+    const closed = computeFlow(nodes, edges);
+    assert.deepEqual(sorted(closed.activeEdges), ['up']);
+    assert.deepEqual(sorted(closed.activePortFuels.get('v:in')), [fuel]);
+    assert.equal(closed.activePorts.has('v:out'), false);
+    assert.equal(closed.activeNodes.has('downstream'), false);
+    nodes[0].enabled = false;
+    const stopped = computeFlow(nodes, edges);
+    assert.equal(stopped.activeEdges.size, 0);
+    assert.equal(stopped.activePorts.size, 0);
+    assert.equal(stopped.activeNodes.size, 0);
+  }
+});
+
+test('neither ground appearance nor a truthy non-boolean value creates a supply source', () => {
+  for (const variant of ['rise', 'sink']) {
+    for (const enabled of [undefined, false, null, 0, 1, 'true', 'false']) {
+      const nodes = [
+        { id: 'ground', type: 'ground', variant, enabled, fuel: 'diesel' },
+        { id: 'end', type: 'outlet' },
+      ];
+      const result = computeFlow(nodes, [pipe('line', 'ground:port', 'end:in')]);
+      assert.equal(result.activeEdges.size, 0);
+      assert.equal(result.activePorts.size, 0);
+      assert.equal(result.activeNodes.size, 0);
+    }
+  }
+});
+
+test('explicitly enabled ground endpoints can supply in either visual direction with legacy fuel fallback', () => {
+  for (const variant of ['rise', 'sink']) {
+    for (const fuel of [undefined, null, 'unknown', 'fuel', 'diesel']) {
+      const nodes = [
+        { id: 'ground', type: 'ground', variant, enabled: true, fuel },
+        { id: 'end', type: 'cap' },
+      ];
+      const result = computeFlow(nodes, [pipe('line', 'ground:port', 'end:in')]);
+      assert.deepEqual(sorted(result.activeEdgeFuels.get('line')), [fuel === 'diesel' ? 'diesel' : 'fuel']);
+      assert.equal(result.activePorts.has('ground:in'), false);
+      assert.equal(result.activePorts.has('ground:out'), false);
+    }
+  }
+});
+
+test('ground and tank sources combine fuels while a disabled ground source remains a passive endpoint', () => {
+  const nodes = [
+    { id: 'tank', type: 'tank', fuel: 'fuel' },
+    { id: 'ground', type: 'ground', variant: 'rise', enabled: true, fuel: 'diesel' },
+    { id: 'joint', type: 'point' },
+    { id: 'sink', type: 'ground', variant: 'sink', enabled: false, fuel: 'diesel' },
+  ];
+  const edges = [
+    pipe('tank-feed', 'tank:out', 'joint:joint'),
+    pipe('ground-feed', 'ground:port', 'joint:joint'),
+    pipe('delivery', 'joint:joint', 'sink:port'),
+  ];
+  const mixed = computeFlow(nodes, edges);
+  for (const edge of edges) assert.deepEqual(sorted(mixed.activeEdgeFuels.get(edge.id)), ['diesel', 'fuel']);
+  assert.deepEqual(sorted(mixed.activeNodeFuels.get('sink')), ['diesel', 'fuel']);
+  nodes[1].enabled = false;
+  const tankOnly = computeFlow(nodes, edges);
+  for (const edge of edges) assert.deepEqual(sorted(tankOnly.activeEdgeFuels.get(edge.id)), ['fuel']);
+  assert.deepEqual(sorted(tankOnly.activeNodeFuels.get('ground')), ['fuel']);
+  nodes[0].enabled = false;
+  const stopped = computeFlow(nodes, edges);
+  assert.equal(stopped.activeEdges.size, 0);
+  assert.equal(stopped.activePorts.size, 0);
+});
+
+
+test('gasoline from a tank or ground source is isolated downstream by a closed valve', () => {
+  for (const type of ['tank', 'ground']) {
+    const sourcePort = type === 'tank' ? 'out' : 'port';
+    const nodes = [
+      { id: 'source', type, enabled: true, fuel: 'gasoline', variant: 'rise' },
+      { id: 'v', type: 'valve', variant: 'riser', open: true },
+      { id: 'filter', type: 'filter' },
+      { id: 'sink', type: 'ground', variant: 'sink', enabled: false },
+    ];
+    const edges = [
+      pipe('up', 'source:' + sourcePort, 'v:in'),
+      pipe('filtered', 'v:out', 'filter:in'),
+      pipe('delivery', 'filter:out', 'sink:port'),
+    ];
+    const opened = computeFlow(nodes, edges);
+    for (const edge of edges) assert.deepEqual(sorted(opened.activeEdgeFuels.get(edge.id)), ['gasoline']);
+    assert.deepEqual(sorted(opened.activeNodeFuels.get('sink')), ['gasoline']);
+    nodes[1].open = false;
+    const closed = computeFlow(nodes, edges);
+    assert.deepEqual(sorted(closed.activeEdges), ['up']);
+    assert.deepEqual(sorted(closed.activePortFuels.get('v:in')), ['gasoline']);
+    assert.equal(closed.activePorts.has('v:out'), false);
+    assert.equal(closed.activeNodes.has('filter'), false);
+    assert.equal(closed.activeNodes.has('sink'), false);
+  }
+});
+
+test('overlapping independent gasoline, diesel and fuel-oil graphs retain their own fuels', () => {
+  const fuels = ['gasoline', 'diesel', 'fuel'];
+  const nodes = fuels.flatMap((fuel, index) => [
+    { id: 'source' + index, type: index === 1 ? 'ground' : 'tank', enabled: true, fuel, x: 0, y: 0 },
+    { id: 'end' + index, type: 'point', x: 100, y: 100 },
+  ]);
+  const edges = fuels.map((fuel, index) => pipe('route' + index,
+    'source' + index + (index === 1 ? ':port' : ':out'), 'end' + index + ':joint'));
+  const result = computeFlow(nodes, edges);
+  for (let index = 0; index < fuels.length; index++) {
+    assert.deepEqual(sorted(result.activeEdgeFuels.get('route' + index)), [fuels[index]]);
+    assert.deepEqual(sorted(result.activeNodeFuels.get('end' + index)), [fuels[index]]);
+  }
+});
+
+test('gasoline can share a reachable route with either existing fuel without losing its identity', () => {
+  for (const otherFuel of ['fuel', 'diesel']) {
+    const nodes = [
+      { id: 'gas', type: 'ground', variant: 'rise', enabled: true, fuel: 'gasoline' },
+      { id: 'other', type: 'tank', fuel: otherFuel },
+      { id: 'joint', type: 'point' },
+      { id: 'end', type: 'outlet' },
+    ];
+    const edges = [
+      pipe('gas-feed', 'gas:port', 'joint:joint'), pipe('other-feed', 'other:out', 'joint:joint'),
+      pipe('shared', 'joint:joint', 'end:in'),
+    ];
+    const expected = ['gasoline', otherFuel].sort();
+    const mixed = computeFlow(nodes, edges);
+    for (const edge of edges) assert.deepEqual(sorted(mixed.activeEdgeFuels.get(edge.id)), expected);
+    assert.deepEqual(sorted(mixed.activeNodeFuels.get('end')), expected);
+    nodes[0].enabled = false;
+    const remaining = computeFlow(nodes, edges);
+    assert.deepEqual(sorted(remaining.activeEdgeFuels.get('shared')), [otherFuel]);
+    assert.deepEqual(sorted(remaining.activeNodeFuels.get('gas')), [otherFuel]);
+    nodes[1].enabled = false;
+    assert.equal(computeFlow(nodes, edges).activeEdges.size, 0);
+  }
+});
+
+test('a common route tracks all three fuels and removes only each disabled supply', () => {
+  const nodes = [
+    { id: 'gas', type: 'tank', fuel: 'gasoline' },
+    { id: 'diesel', type: 'ground', variant: 'rise', enabled: true, fuel: 'diesel' },
+    { id: 'fuel', type: 'tank', fuel: 'fuel' },
+    { id: 'joint', type: 'point' },
+    { id: 'sink', type: 'ground', variant: 'sink', enabled: false },
+  ];
+  const edges = [
+    pipe('gas-feed', 'gas:out', 'joint:joint'), pipe('diesel-feed', 'diesel:port', 'joint:joint'),
+    pipe('fuel-feed', 'fuel:out', 'joint:joint'), pipe('shared', 'joint:joint', 'sink:port'),
+  ];
+  const all = computeFlow(nodes, edges);
+  for (const edge of edges) assert.deepEqual(sorted(all.activeEdgeFuels.get(edge.id)), ['diesel', 'fuel', 'gasoline']);
+  assert.deepEqual(sorted(all.activeNodeFuels.get('sink')), ['diesel', 'fuel', 'gasoline']);
+  nodes[0].enabled = false;
+  const withoutGas = computeFlow(nodes, edges);
+  assert.deepEqual(sorted(withoutGas.activeEdgeFuels.get('shared')), ['diesel', 'fuel']);
+  nodes[1].enabled = false;
+  const fuelOnly = computeFlow(nodes, edges);
+  assert.deepEqual(sorted(fuelOnly.activeEdgeFuels.get('shared')), ['fuel']);
+  nodes[2].enabled = false;
+  const stopped = computeFlow(nodes, edges);
+  assert.equal(stopped.activeEdges.size, 0);
+  assert.equal(stopped.activeNodes.size, 0);
+  assert.equal(stopped.activePorts.size, 0);
+});
