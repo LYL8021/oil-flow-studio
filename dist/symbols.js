@@ -9,6 +9,20 @@ export function referenceSymbol(type, { fill, active = true, open = true, varian
   }
 
   if (type === 'valve') {
+    if (variant === 'riser') {
+      // End view of an above-ground riser: bolted flange and diagonal handwheel.
+      // The two external ports remain on the local horizontal pipe axis.
+      const bolts = Array.from({ length: 8 }, (_, index) => {
+        const angle = (index * 45 + 22.5) * Math.PI / 180;
+        const x = (18.5 * Math.cos(angle)).toFixed(2);
+        const y = (18.5 * Math.sin(angle)).toFixed(2);
+        return `<circle cx="${x}" cy="${y}" r="1.5" fill="currentColor" stroke="none"/>`;
+      }).join('');
+      const closed = open === false
+        ? '<path d="m-7-7 14 14m0-14L-7 7" fill="none" stroke="var(--diagram-handle-closed)" stroke-width="2.5"/>'
+        : '<path d="m-8 8 16-16" fill="none" stroke-width="2"/>';
+      return `<g class="reference-valve reference-riser-valve"><path d="M-36 0h14m44 0h14" fill="none"/><circle r="23" fill="${bodyFill}"/><circle r="14" fill="${bodyFill}" stroke-width="1.6"/>${bolts}<path d="m-10 10-17 17m-3-9 12 12m-17-8 13 13" fill="none" stroke-width="1.8"/>${closed}</g>`;
+    }
     const pipe = '<path d="M-36 0h12m48 0h12" fill="none"/>';
     const flanges = '<path d="M-29-19v38M29-19v38" fill="none" stroke-width="2"/>';
     const body = `<path d="M-24-15v30L0 0Zm48 0v30L0 0Z" fill="${bodyFill}"/>`;
