@@ -10,14 +10,13 @@ export function referenceSymbol(type, { fill, active = true, open = true, varian
 
   if (type === 'ground') {
     const sinking = variant === 'sink';
-    // One surface connection; the short lower leg denotes the buried continuation.
-    const pipe = sinking ? 'M-36 0H4Q14 0 14 10V36' : 'M-14 36V10Q-14 0-4 0H36';
-    const surface = sinking
-      ? 'M-40 18H6m16 0h18M-35 18l-7 8m19-8-7 8m19-8-7 8m44-8-7 8m19-8-7 8'
-      : 'M-40 18h18m16 0h46M-35 18l-7 8m19-8-7 8m31-8-7 8m19-8-7 8m19-8-7 8';
-    const arrow = sinking ? 'M28 8v24m-5-6 5 6 5-6' : 'M-28 32V8m-5 6 5-6 5 6';
-    const flange = sinking ? 'M-30-7V7' : 'M30-7V7';
-    return `<g class="reference-ground ground-${sinking ? 'sink' : 'rise'}"><path d="${surface}" fill="none" stroke-width="1.3" opacity=".55"/><path d="${pipe}" fill="none" stroke="var(--diagram-surface)" stroke-width="12"/><path d="${pipe}" fill="none" stroke-width="8"/><path d="${pipe}" fill="none" stroke="${bodyFill}" stroke-width="4"/><path d="${flange}" fill="none" stroke-width="1.8"/><path d="${arrow}" fill="none" stroke-width="1.8"/></g>`;
+    // Plan-view buried continuation: a pipe ending in the drawing's curved break mark.
+    // The mirrored marks retain the existing single connection at x = -36 / +36.
+    const pipe = sinking ? 'M-36 0H14' : 'M36 0H-14';
+    const continuation = sinking
+      ? 'M14-13Q25-7 14 0Q3 7 14 13'
+      : 'M-14-13Q-25-7-14 0Q-3 7-14 13';
+    return `<g class="reference-ground ground-${sinking ? 'sink' : 'rise'}"><path class="ground-stem" d="${pipe}" fill="none" stroke-width="4"/><path class="ground-continuation" d="${continuation}" fill="none" stroke-width="2.2"/></g>`;
   }
 
   if (type === 'valve') {

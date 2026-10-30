@@ -69,7 +69,7 @@
 .pipe-tertiary {
   display: none;
   fill: none;
-  stroke-width: 5;
+  stroke-width: 24;
   stroke-dasharray: 12 12;
   stroke-linecap: butt;
   stroke-linejoin: round;
@@ -143,7 +143,7 @@
 .toolbar-right { display: flex; align-items: center; gap: 10px; }
 .pipe-kind-select { width: 92px; min-height: 30px; padding: 5px 19px 5px 8px; font-size: 10px; }
 .node .port.fluid-diesel.active { stroke: var(--diesel-line); }
-.pipe.underground .pipe-line { stroke-dasharray: 12 7; }
+.pipe.underground .pipe-line { stroke-dasharray: 12 7; stroke-linecap: butt; }
 .pipe.underground .pipe-secondary { stroke-dasharray: 6 13; stroke-dashoffset: -6; }
 /* Three supplies underground use three coloured dashes with visible ground gaps. */
 .pipe.active.underground.fluid-mixed.mix-all .pipe-line {
@@ -170,8 +170,8 @@
  .pipe-kind-select { width: 68px; padding-left: 5px; font-size: 9px; }
 }
 
-.standalone-pipe-hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; }
-.node.selected .standalone-pipe > .pipe-border { stroke: #f4cca9; stroke-width: 14; }
+.standalone-pipe-hit { fill: none; stroke: transparent; stroke-width: 36; pointer-events: stroke; }
+.node.selected .standalone-pipe > .pipe-border { stroke: #f4cca9; stroke-width: 32; }
 [data-theme="dark"] .node.selected .standalone-pipe > .pipe-border { stroke: #705139; }
 .route-toggle { flex-shrink: 0; border-radius: 5px; gap: 4px; padding: 6px; }
 .route-toggle.active { color: var(--orange); background: var(--orange-light); }
@@ -193,3 +193,15 @@
 /* A mixed node uses its representative palette; individual ports keep their own fuels. */
 .node.active.fluid-mixed .node-symbol { color:var(--fluid-symbol); }
 .node .port.fluid-mixed.active { stroke:var(--mixed-base); }
+
+/* Closing a valve clears only its body; the live upstream ports retain their fuel. */
+.node.closed-valve > .node-symbol,
+.node.active.closed-valve > .node-symbol {
+  --fluid-line:var(--diagram-idle-symbol);
+  --fluid-symbol:var(--diagram-idle-symbol);
+  --fluid-fill:var(--diagram-idle-fill);
+  --fluid-oil:var(--diagram-idle-oil);
+  --fluid-detail:var(--diagram-detail);
+  color:var(--diagram-idle-symbol);
+  fill:var(--diagram-idle-fill);
+}

@@ -607,3 +607,95 @@ test('a common route tracks all three fuels and removes only each disabled suppl
   assert.equal(stopped.activeNodes.size, 0);
   assert.equal(stopped.activePorts.size, 0);
 });
+
+test('source-based directions reverse drawn endpoints without changing reachable oil', () => {
+  const nodes=[{id:'t',type:'tank',fuel:'diesel'},{id:'v',type:'valve',open:true},{id:'o',type:'outlet'}];
+  const forward=[pipe('up','t:out','v:in'),pipe('down','v:out','o:in')];
+  const reversed=[pipe('up','v:in','t:out'),pipe('down','o:in','v:out')];
+  const a=computeFlow(nodes,forward),b=computeFlow(nodes,reversed);
+  assert.deepEqual([...a.edgeDirections],[['up','forward'],['down','forward']]);
+  assert.deepEqual([...b.edgeDirections],[['up','reverse'],['down','reverse']]);
+  assert.deepEqual(sorted(a.activeEdges),sorted(b.activeEdges));
+  assert.deepEqual(sorted(a.activeEdgeFuels.get('down')),sorted(b.activeEdgeFuels.get('down')));
+  nodes[1].open=false;
+  const closed=computeFlow(nodes,reversed);
+  assert.deepEqual([...closed.edgeDirections],[['up','reverse']]);
+  assert.equal(closed.activeNodes.has('v'),true);
+  assert.equal(closed.activePorts.has('v:out'),false);
+});
+
+test('enabled ground supplies direct every branch away from the real source', () => {
+  const nodes=[{id:'g',type:'ground',variant:'rise',enabled:true,fuel:'gasoline'},
+    {id:'j',type:'point'},{id:'a',type:'outlet'},{id:'b',type:'ground',variant:'sink',enabled:false}];
+  const edges=[pipe('feed','j:joint','g:port'),pipe('left','a:in','j:joint'),pipe('right','j:joint','b:port')];
+  const result=computeFlow(nodes,edges);
+  assert.deepEqual([...result.edgeDirections],[['feed','reverse'],['left','reverse'],['right','forward']]);
+  assert.deepEqual(sorted(result.activeEdgeFuels.get('right')),['gasoline']);
+  nodes[0].enabled=false;
+  assert.equal(computeFlow(nodes,edges).edgeDirections.size,0);
+});
+
+test('a standalone pipe direction follows its supplied end independently of external edge order', () => {
+  const nodes=[{id:'t',type:'tank'},{id:'p',type:'pipe'},{id:'c',type:'cap'},{id:'island',type:'pipe'}];
+  const edges=[pipe('feed','t:out','p:out'),pipe('tail','p:in','c:in')];
+  let result=computeFlow(nodes,edges);
+  assert.equal(result.nodeDirections.get('p'),'reverse');
+  assert.equal(result.nodeDirections.has('island'),false);
+  assert.deepEqual([...result.edgeDirections],[['feed','forward'],['tail','forward']]);
+  edges[0]=pipe('feed','p:out','t:out');
+  result=computeFlow(nodes,edges);
+  assert.equal(result.edgeDirections.get('feed'),'reverse');
+  assert.equal(result.nodeDirections.get('p'),'reverse');
+  nodes[0].enabled=false;
+  assert.equal(computeFlow(nodes,edges).nodeDirections.size,0);
+});
+
+test('opposing supplies stay ambiguous even when they contain the same fuel', () => {
+  for(const secondFuel of ['fuel','diesel']){
+    const nodes=[{id:'a',type:'tank',fuel:'fuel'},{id:'p',type:'pipe'},{id:'b',type:'tank',fuel:secondFuel}];
+    const edges=[pipe('left','a:out','p:in'),pipe('right','p:out','b:out')];
+    const both=computeFlow(nodes,edges);
+    assert.deepEqual([...both.edgeDirections],[['left','ambiguous'],['right','ambiguous']]);
+    assert.equal(both.nodeDirections.get('p'),'ambiguous');
+    nodes[2].enabled=false;
+    const onlyA=computeFlow(nodes,edges);
+    assert.deepEqual([...onlyA.edgeDirections],[['left','forward'],['right','forward']]);
+    assert.equal(onlyA.nodeDirections.get('p'),'forward');
+  }
+});
+
+test('supplies can agree on a common outgoing branch while opposing on feeder lines', () => {
+  const nodes=[{id:'a',type:'tank'},{id:'b',type:'ground',enabled:true,fuel:'diesel'},
+    {id:'j',type:'point'},{id:'o',type:'outlet'}];
+  const edges=[pipe('a-feed','a:out','j:joint'),pipe('b-feed','b:port','j:joint'),pipe('shared','j:joint','o:in')];
+  const result=computeFlow(nodes,edges);
+  assert.equal(result.edgeDirections.get('a-feed'),'ambiguous');
+  assert.equal(result.edgeDirections.get('b-feed'),'ambiguous');
+  assert.equal(result.edgeDirections.get('shared'),'forward');
+  assert.deepEqual(sorted(result.activeEdgeFuels.get('shared')),['diesel','fuel']);
+});
+
+test('balanced cycle paths do not invent a unique direction between equal-distance ports', () => {
+  const nodes=[{id:'t',type:'tank'},{id:'a',type:'point'},{id:'b',type:'point'},{id:'c',type:'point'}];
+  const edges=[pipe('feed','t:out','a:joint'),pipe('ab','a:joint','b:joint'),
+    pipe('ac','a:joint','c:joint'),pipe('bc','b:joint','c:joint')];
+  let result=computeFlow(nodes,edges);
+  assert.equal(result.edgeDirections.get('feed'),'forward');
+  assert.equal(result.edgeDirections.get('ab'),'forward');
+  assert.equal(result.edgeDirections.get('ac'),'forward');
+  assert.equal(result.edgeDirections.get('bc'),'ambiguous');
+  result=computeFlow(nodes,edges.filter(edge=>edge.id!=='ac'));
+  assert.equal(result.edgeDirections.get('bc'),'forward');
+});
+
+test('independent crossing geometry and inactive islands do not alter source directions', () => {
+  const nodes=[{id:'a',type:'tank',x:0,y:50},{id:'endA',type:'point',x:100,y:50},
+    {id:'b',type:'ground',enabled:true,x:50,y:0},{id:'endB',type:'point',x:50,y:100},
+    {id:'u',type:'point'},{id:'v',type:'point'}];
+  const edges=[pipe('horizontal','a:out','endA:joint'),pipe('vertical','endB:joint','b:port'),
+    pipe('island','u:joint','v:joint'),pipe('invalid','a:out','b:missing')];
+  const result=computeFlow(nodes,edges);
+  assert.deepEqual([...result.edgeDirections],[['horizontal','forward'],['vertical','reverse']]);
+  assert.equal(result.edgeDirections.has('island'),false);
+  assert.equal(result.edgeDirections.has('invalid'),false);
+});

@@ -1,0 +1,64 @@
+/* Shared anonymous suggestions use the same quiet palette as the drawing tools. */
+.feedback-trigger { flex-shrink:0; white-space:nowrap; }
+.feedback-dialog { width:min(1030px,calc(100% - 36px)); max-width:1030px; max-height:90vh; max-height:90dvh; overflow-y:auto; overscroll-behavior:contain; background:var(--paper); color:var(--ink); }
+.feedback-dialog h2 { margin:17px 0 8px; font-size:23px; font-weight:500; line-height:1.5; }
+.feedback-intro { margin:0 0 22px; color:var(--muted); font-size:12px; line-height:1.85; }
+.feedback-columns { display:grid; grid-template-columns:minmax(250px,.85fr) minmax(0,1.15fr); gap:23px; align-items:start; }
+.feedback-form, #feedbackForm { padding:17px; border:1px solid var(--line); border-radius:9px; background:var(--bg); min-width:0; }
+#feedbackForm label { display:block; margin:0 0 8px; font-size:11px; line-height:1.6; }
+#feedbackForm input:not([type="hidden"]), #feedbackForm select, #feedbackForm textarea { display:block; width:100%; min-width:0; min-height:38px; padding:10px 11px; margin:0 0 16px; border:1px solid var(--line); border-radius:6px; outline:none; background:var(--paper); color:var(--ink); font:inherit; font-size:12px; line-height:1.7; }
+#feedbackForm textarea { min-height:145px; resize:vertical; }
+#feedbackForm input::placeholder, #feedbackForm textarea::placeholder { color:var(--muted); }
+#feedbackForm input:focus, #feedbackForm textarea:focus, #feedbackForm select:focus { border-color:var(--orange); box-shadow:0 0 0 2px var(--orange-light); }
+#feedbackForm [hidden], #feedbackWebsite { display:none !important; }
+#feedbackSubmit { width:100%; min-height:38px; }
+.feedback-form-note { margin:12px 0 0; color:var(--muted); font-size:10px; line-height:1.8; }
+#feedbackMessage { min-height:18px; margin:13px 0 0; color:var(--green); font-size:11px; line-height:1.85; overflow-wrap:anywhere; }
+#feedbackMessage:empty { min-height:0; margin:0; }
+#feedbackMessage.is-error { color:#b66e60; }
+.feedback-board { min-width:0; }
+.feedback-board-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin:0 0 11px; }
+.feedback-board-heading h3 { margin:0; font-size:13px; font-weight:500; }
+#feedbackCount { color:var(--muted); font-size:10px; line-height:1.7; }
+.feedback-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin:0 0 13px; }
+.feedback-toolbar select { flex:1; min-width:100px; min-height:33px; padding:6px 23px 6px 9px; border:1px solid var(--line); border-radius:5px; background:var(--bg); color:var(--ink); font:inherit; font-size:11px; }
+.feedback-toolbar button { min-height:33px; padding:6px 8px; font-size:10px; white-space:nowrap; }
+#feedbackList { display:grid; gap:11px; min-width:0; max-height:54dvh; overflow-y:auto; overscroll-behavior:contain; padding:3px; margin:-3px; }
+.feedback-card { min-width:0; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--paper); }
+.feedback-card-meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px 9px; color:var(--muted); font-size:10px; line-height:1.7; }
+.feedback-category { padding:2px 6px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--muted); }
+.feedback-category-idea { color:var(--green); }
+.feedback-category-bug { color:var(--orange); }
+.feedback-author { overflow-wrap:anywhere; }
+.feedback-card-meta time { margin-left:auto; font-size:9px; }
+.feedback-card h3 { margin:10px 0 6px; color:var(--ink); font-size:13px; font-weight:500; line-height:1.7; overflow-wrap:anywhere; }
+.feedback-card-body { margin:0; color:var(--muted); font-size:12px; line-height:1.9; white-space:pre-wrap; overflow-wrap:anywhere; }
+.feedback-empty { padding:31px 17px; border:1px dashed var(--line); border-radius:8px; color:var(--muted); font-size:11px; line-height:1.9; text-align:center; }
+.feedback-empty strong { display:block; margin:0 0 5px; color:var(--ink); font-size:13px; font-weight:500; }
+.feedback-empty p { margin:0; }
+.feedback-load-more { width:100%; min-height:34px; margin:12px 0 0; font-size:11px; }
+.feedback-footer { display:flex; align-items:center; justify-content:space-between; gap:13px; margin-top:22px; padding-top:17px; border-top:1px solid var(--line); }
+.feedback-footer p, .feedback-footer > span { margin:0; color:var(--muted); font-size:10px; line-height:1.9; }
+.feedback-footer .button { flex-shrink:0; }
+.feedback-copy-buffer { position:fixed; left:-9999px; top:0; opacity:0; }
+[data-theme="dark"] #feedbackMessage.is-error { color:#e4a19b; }
+@media(max-width:1200px) { .feedback-trigger .feedback-label { display:none; } }
+@media(max-width:760px) {
+ .feedback-dialog { width:calc(100% - 24px); padding:22px 18px; }
+ .feedback-dialog h2 { font-size:21px; }
+ .feedback-intro { margin-bottom:17px; font-size:11px; }
+ .feedback-columns { grid-template-columns:minmax(0,1fr); gap:22px; }
+ #feedbackForm { padding:14px; }
+ #feedbackList { max-height:46dvh; }
+ .feedback-footer { flex-wrap:wrap; gap:10px; }
+ .feedback-footer .button { margin-left:auto; }
+}
+@media(max-width:440px) {
+ #feedbackForm input:not([type="hidden"]), #feedbackForm select, #feedbackForm textarea { font-size:16px; }
+ .feedback-toolbar { gap:6px; }
+ .feedback-toolbar select { flex:1 0 100%; }
+ .feedback-toolbar button { flex:1; }
+ .feedback-card { padding:12px; }
+ .feedback-card-meta time { flex-basis:100%; margin-left:0; }
+ .feedback-trigger .icon { width:15px; height:15px; }
+}

@@ -34,7 +34,12 @@ body[data-workspace="edit"] #canvas .port:focus-visible { opacity: 1; r: 7; }
 .text-bold-field input { accent-color:var(--orange); }
 .node-identifier { font-size:11px; }
 
-/* Wider jump and underlay leave a clearer gap around the lower crossing pipe. */
-.pipe.bridge > .pipe-border { stroke-width:16; }
-.pipe.bridge.selected > .pipe-border,
-.node.selected .standalone-pipe.bridge > .pipe-border { stroke-width:18; }
+/* Pipe width stays below the valve flange faces while making motion easier to read. */
+.pipe-line { stroke-width:24; }
+.pipe-border { stroke-width:30; }
+.pipe-hit { stroke-width:36; }
+.pipe.selected > .pipe-border { stroke-width:32; }
+.flow-dashes { stroke-width:5; stroke-dasharray:8 28; }
+.flow-dashes.flow-reverse { animation-direction:reverse; }
+.draft-pipe { stroke-width:6; }
+@keyframes flow { to { stroke-dashoffset:-72; } }

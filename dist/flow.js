@@ -54,6 +54,7 @@ export function computeFlow(nodes, edges) {
   // Track those paths separately instead of choosing the first tank encountered.
   const activePortFuels = new Map();
   const queue = [];
+  const sourcePorts = [];
   const reach = (port, fuel) => {
     if (!activePortFuels.has(port)) activePortFuels.set(port, new Set());
     const fuels = activePortFuels.get(port);
@@ -67,6 +68,7 @@ export function computeFlow(nodes, edges) {
     const groundSource = node.type === 'ground' && node.enabled === true;
     if (!tankSource && !groundSource) continue;
     const source = key(node.id, groundSource ? 'port' : 'out');
+    sourcePorts.push(source);
     // Legacy projects and unrecognized fuel values retain the original fuel oil.
     reach(source, node.fuel === 'diesel' || node.fuel === 'gasoline' ? node.fuel : 'fuel');
   }
@@ -100,8 +102,46 @@ export function computeFlow(nodes, edges) {
   const activePorts = new Set(activePortFuels.keys());
   const activeEdges = new Set(activeEdgeFuels.keys());
   const activeNodes = new Set(activeNodeFuels.keys());
+
+  // Animation follows enabled sources rather than the order used to draw a pipe.
+  // Each source votes separately, including sources of the same fuel. Conflicting
+  // votes or equally short paths stay ambiguous; this is not a pressure model.
+  const edgeDirections = new Map();
+  const nodeDirections = new Map();
+  const mergeDirection = (target, id, direction) => {
+    if (!target.has(id)) target.set(id, direction);
+    else if (target.get(id) !== direction) target.set(id, 'ambiguous');
+  };
+  const directionBetween = (distances, from, to) => {
+    if (!distances.has(from) || !distances.has(to)) return null;
+    const difference = distances.get(to) - distances.get(from);
+    return difference > 0 ? 'forward' : difference < 0 ? 'reverse' : 'ambiguous';
+  };
+  const pipeNodes = nodes.filter(node => node.type === 'pipe' && activeNodes.has(node.id));
+  for (const source of sourcePorts) {
+    const distances = new Map([[source, 0]]);
+    const pending = [source];
+    for (let index = 0; index < pending.length; index++) {
+      const from = pending[index];
+      for (const to of adjacency.get(from) || []) {
+        if (distances.has(to)) continue;
+        distances.set(to, distances.get(from) + 1);
+        pending.push(to);
+      }
+    }
+    for (const edge of validEdges) {
+      if (!activeEdges.has(edge.id)) continue;
+      const direction = directionBetween(distances, edge.from, edge.to);
+      if (direction) mergeDirection(edgeDirections, edge.id, direction);
+    }
+    for (const node of pipeNodes) {
+      const direction = directionBetween(distances, key(node.id, 'in'), key(node.id, 'out'));
+      if (direction) mergeDirection(nodeDirections, node.id, direction);
+    }
+  }
   return {
     activeEdges, activeNodes, activePorts,
     activeEdgeFuels, activeNodeFuels, activePortFuels,
+    edgeDirections, nodeDirections,
   };
 }
