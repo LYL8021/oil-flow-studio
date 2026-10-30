@@ -1,0 +1,24 @@
+/* Geometry controls stay distinct from circular pipe connection ports. */
+.transform-layer { pointer-events:none; }
+.transform-frame { fill:none; stroke:var(--orange); stroke-width:1; stroke-dasharray:4 4; opacity:.55; }
+.transform-leader { fill:none; stroke:var(--orange); stroke-width:1; opacity:.7; pointer-events:none; }
+.transform-control { pointer-events:all; outline:none; touch-action:none; }
+.transform-hit { fill:transparent; stroke:none; }
+.transform-handle { fill:var(--diagram-surface,var(--paper)); stroke:var(--orange); stroke-width:1.7; }
+.transform-control:hover .transform-handle,.transform-control:focus .transform-handle { fill:var(--orange-light); stroke-width:2.5; }
+.transform-control:focus-visible .transform-handle { stroke-dasharray:2 2; }
+.transform-rotate { cursor:grab; }
+.transform-rotate:active { cursor:grabbing; }
+.transform-resize-nw,.transform-resize-se { cursor:nwse-resize; }
+.transform-resize-ne,.transform-resize-sw { cursor:nesw-resize; }
+.transform-caption { fill:var(--diagram-label,var(--ink)); stroke:none; font-family:inherit; font-weight:500; pointer-events:none; user-select:none; }
+.transform-nozzle { cursor:crosshair; }
+.transform-nozzle-in .transform-handle { stroke:var(--diesel-line,#90d5ef); }
+.transform-nozzle-out .transform-handle { stroke:var(--orange); }
+.transform-nozzle-in .transform-caption { fill:var(--diesel-line,#90d5ef); }
+.transform-nozzle-out .transform-caption { fill:var(--orange); }
+.transform-nozzle-leader { stroke:var(--diagram-subtle,var(--muted)); stroke-dasharray:3 3; }
+.transform-hint { margin:12px 0; font-size:10px; line-height:1.8; color:var(--muted); }
+.tank-nozzle { stroke:currentColor; stroke-width:3; }
+body[data-workspace="edit"] .node.selected > .selection-box,
+body[data-workspace="edit"] .text-mark.selected .text-mark-selection { display:none; }

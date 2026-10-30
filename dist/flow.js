@@ -5,7 +5,7 @@
  */
 export function computeFlow(nodes, edges) {
   const portsByType = {
-    tank: ['out'],
+    tank: ['in', 'out'],
     ground: ['port'],
     valve: ['in', 'out'],
     elbow: ['in', 'out'],
@@ -34,7 +34,9 @@ export function computeFlow(nodes, edges) {
 
   for (const node of nodes) {
     const ports = portsByType[node.type] || [];
-    if (node.type === 'valve' && node.open === false) continue;
+    // Receiving oil never turns a storage tank into a through-pipe. Its outlet
+    // is supplied only by the tank's own enabled source or another external path.
+    if (node.type === 'tank' || node.type === 'valve' && node.open === false) continue;
     for (let index = 1; index < ports.length; index += 1) {
       connect(key(node.id, ports[0]), key(node.id, ports[index]));
     }

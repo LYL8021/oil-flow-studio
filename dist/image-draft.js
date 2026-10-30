@@ -1,3 +1,4 @@
+import {isPdfFile,readPdf} from './pdf-import.js?v=pdf-1';
 /* Local OCR creates a reviewable placement draft, never inferred hydraulic links. */
 let ocrLibraryPromise;
 const MAX_FILE_BYTES=15*1024*1024;
@@ -24,12 +25,13 @@ function abortable(promise,signal){
  });
 }
 
-/** Load only a local PNG/JPEG/WebP and return a serializable reference plus its canvas. */
-export async function readImage(file,{onProgress,signal}={}){
+/** Load a local raster or selected PDF page and return its serializable reference. */
+export async function readImage(file,{onProgress,signal,page=1,rotation=0}={}){
  checkAbort(signal);
- if(!file||typeof file.size!=='number'||typeof file.arrayBuffer!=='function')throw new Error('請選擇 PNG、JPG 或 WebP 圖片');
+ if(isPdfFile(file))return readPdf(file,{onProgress,signal,page,rotation});
+ if(!file||typeof file.size!=='number'||typeof file.arrayBuffer!=='function')throw new Error('請選擇 PNG、JPG、WebP 或 PDF 圖面');
  const mime=String(file.type||'').toLowerCase();
- if(!/^image\/(png|jpeg|webp)$/.test(mime)&&!(mime===''&&/\.(png|jpe?g|webp)$/i.test(file.name||'')))throw new Error('僅支援 PNG、JPG 或 WebP 圖片');
+ if(!/^image\/(png|jpeg|webp)$/.test(mime)&&!(mime===''&&/\.(png|jpe?g|webp)$/i.test(file.name||'')))throw new Error('僅支援 PNG、JPG、WebP 或 PDF 圖面');
  if(file.size>MAX_FILE_BYTES)throw new Error('圖片超過 15 MB，請先縮小後再匯入');
  if(!file.size)throw new Error('圖片檔案是空的');
  if(typeof document==='undefined')throw new Error('圖片功能需要在瀏覽器中開啟');
@@ -70,12 +72,12 @@ function parseCode(text){
  value=value.replace(/^(RN-?(?:FIL|FLT|FM|FI|TK|DB|DF|BF|[DVFCGPXTE])-?)([0-9OIL]+)$/,(all,prefix,number)=>prefix+number.replace(/O/g,'0').replace(/[IL]/g,'1'));
  let match=value.match(/^RN-?(FIL|FLT|FM|FI|TK|DB|DF|BF|[DVFCGPXTE])-?(\d{1,3}[A-Z]?)$/);
  if(match)return {code:`RN-${match[1]}${match[2]}`,prefix:match[1],rn:true};
- match=value.match(/^(FIL|FLT|FM|FI|TK|DB|DF|BF|[DVFCGPXTE])-?(\d{1,3}[A-Z]?)$/);
+ match=value.match(/^(FIL|FLT|FM|FI|TK|TC|DB|DF|BF|[DVFCGPXTE])-?(\d{1,3}[A-Z]?)$/);
  if(match)return {code:`${match[1]}-${match[2]}`,prefix:match[1],rn:false};
  return null;
 }
 function guessType(tag){
- if(tag.prefix==='TK')return 'tank';
+ if(tag.prefix==='TK'||tag.prefix==='TC')return 'tank';
  if(tag.prefix==='FM'||tag.prefix==='FI')return 'flowmeter';
  if(tag.prefix==='FIL'||tag.prefix==='FLT'||(!tag.rn&&tag.prefix==='F'))return 'filter';
  if(tag.prefix==='BF')return 'cap';
@@ -199,9 +201,15 @@ function preprocess(canvas){
 
 /** OCR and image content stay in this browser; only same-site engine assets load. */
 export async function analyzeImage(file,{onProgress,signal}={}){
+ const image=await readImage(file,{onProgress,signal});
+ return analyzePreparedImage(image,{onProgress,signal});
+}
+
+/** Use the exact selected/rotated PDF preview, rather than silently rereading page 1. */
+export async function analyzePreparedImage(image,{onProgress,signal}={}){
  const report=progressHandler(onProgress);checkAbort(signal);
  if(globalThis.location?.protocol==='file:')throw new Error('離線單檔版無法載入辨識引擎，請使用線上版辨識，或選「只載入底圖」手動描圖');
- const image=await readImage(file,{onProgress:event=>report(event.progress,event.message,event.status),signal});
+ if(!image?.canvas||!image.reference||!Number.isFinite(image.imageWidth)||!Number.isFinite(image.imageHeight))throw new Error('請先載入圖片或 PDF 頁面，再辨識元件');
  report(.12,'整理文字對比，保留原始底圖…','preprocessing image');
  const input=preprocess(image.canvas);checkAbort(signal);
  report(.16,'載入瀏覽器文字辨識引擎…','loading engine');

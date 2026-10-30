@@ -24,6 +24,15 @@ test('bare continuous route creates only two blank endpoints and one polyline, i
  assert.deepEqual(project.metadata,{preserve:true});
 });
 
+test('large reference pages allow pipe endpoints and bends throughout the expanded coordinate bounds',()=>{
+ const source=freeze({nodes:[],edges:[]});
+ const {project}=run(source,canvas(-40000,-40000),canvas(40000,40000),
+  [{x:-40000,y:-40000},{x:29000,y:30000},{x:40000,y:40000}]);
+ assert.deepEqual(project.nodes.map(({x,y})=>({x,y})),[{x:-40000,y:-40000},{x:40000,y:40000}]);
+ assert.deepEqual(project.edges[0].waypoints,[{x:29000,y:30000}]);
+ assert.deepEqual(source,{nodes:[],edges:[]});
+});
+
 test('source to existing component uses no unnecessary endpoint nodes and preserves route',()=>{
  const source={nodes:[{...tank},{...outlet}],edges:[]};
  const {project}=run(source,port('tank','out'),port('out','in'),[{x:50,y:0},{x:300,y:0},{x:467,y:0}]);
@@ -74,9 +83,36 @@ test('one visible riser can still isolate its two logical sides and reject same-
 });
 
 test('near endpoint attaches to original port without creating a tiny split segment',()=>{
- const source={nodes:[{...tank},{...outlet}],edges:[{id:'main',from:port('tank','out'),to:port('out','in'),kind:'normal'}]};
+ const source={nodes:[{id:'joint',type:'point',x:0,y:0},{...outlet}],edges:[{id:'main',from:port('joint','joint'),to:port('out','in'),kind:'normal'}]};
  const {project}=run(source,{edge:'main',point:{x:.3,y:0},path:[{x:0,y:0},{x:500,y:0}]},canvas(100,100),[{x:.3,y:0},{x:100,y:100}]);
- assert.equal(project.edges.length,2);assert.equal(project.nodes.length,3);assert.deepEqual(project.edges[1].from,port('tank','out'));
+ assert.equal(project.edges.length,2);assert.equal(project.nodes.length,3);assert.deepEqual(project.edges[1].from,port('joint','joint'));
+});
+
+test('tank inlet and outlet each accept one connection without altering nozzle geometry or old edges',()=>{
+ const storage={...tank,enabled:false,inAngle:120,outAngle:30,scale:1.5};
+ let sequence=0;const idFactory=prefix=>prefix+'tank'+(++sequence);
+ const received=run({nodes:[storage,{id:'feed',type:'ground',x:-200,y:0,enabled:true,fuel:'gasoline'}],edges:[]},
+  port('feed','port'),port('tank','in'),[{x:-164,y:0},{x:-40,y:65}],{idFactory});
+ const delivered=run(received.project,port('tank','out'),canvas(300,0),[{x:65,y:37},{x:300,y:0}],{idFactory});
+ assert.deepEqual(delivered.project.nodes.find(n=>n.id==='tank'),storage);
+ assert.deepEqual(delivered.project.edges[0].to,port('tank','in'));
+ assert.deepEqual(delivered.project.edges[1].from,port('tank','out'));
+ const flow=computeFlow(delivered.project.nodes,delivered.project.edges);
+ assert.equal(flow.activeEdges.has(received.edgeId),true);
+ assert.equal(flow.activeEdges.has(delivered.edgeId),false);
+ for(const side of ['in','out']){
+  const before=structuredClone(delivered.project);
+  assert.throws(()=>run(delivered.project,port('tank',side),canvas(500,200),[{x:0,y:0},{x:500,y:200}],{idFactory}),/已接管/);
+  assert.deepEqual(delivered.project,before);
+ }
+});
+
+test('legacy multiple outlet pipes remain loadable during unrelated edits but cannot acquire another nozzle branch',()=>{
+ const project={nodes:[{...tank},{id:'a',type:'point',x:200,y:0},{id:'b',type:'point',x:0,y:200}],
+  edges:[{id:'old-a',from:port('tank','out'),to:port('a','joint')},{id:'old-b',from:port('tank','out'),to:port('b','joint')}]};
+ const edited=run(project,canvas(400,400),canvas(600,400),[{x:400,y:400},{x:600,y:400}]);
+ assert.deepEqual(edited.project.edges.slice(0,2),project.edges);
+ assert.throws(()=>run(project,{edge:'old-a',point:{x:.3,y:0},path:[{x:0,y:0},{x:200,y:0}]},canvas(100,100),[{x:.3,y:0},{x:100,y:100}]),/已接管/);
 });
 
 test('occupied blind flange, invalid ports, zero-length, same-node and same-edge runs reject atomically',()=>{
@@ -96,7 +132,7 @@ test('failed split, malformed coordinates and quantity limits leave no orphan no
  const source=main(),before=structuredClone(source);
  assert.throws(()=>run(source,{edge:'main',point:{x:250,y:200},path:mainPath},port('missing','in'),[{x:250,y:200},{x:400,y:400}]),/接點無效/);
  assert.deepEqual(source,before);
- for(const bad of [NaN,Infinity,10001,'200'])assert.throws(()=>run(source,canvas(0,0),canvas(bad,100),[{x:0,y:0},{x:bad,y:100}]),/座標無效/);
+ for(const bad of [NaN,Infinity,40001,-40001,'200'])assert.throws(()=>run(source,canvas(0,0),canvas(bad,100),[{x:0,y:0},{x:bad,y:100}]),/座標無效/);
  assert.throws(()=>run(source,canvas(0,0),canvas(1,1),[{x:0,y:0},{x:1,y:1}],{idFactory:()=> 'main'}),/編號重複/);
  const crowded={nodes:Array.from({length:400},(_,i)=>({id:'point'+i,type:'point',x:i,y:0,name:'',code:''})),edges:[]};
  const crowdedBefore=structuredClone(crowded);

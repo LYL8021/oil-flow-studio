@@ -14,6 +14,33 @@ const pipe = (id, a, b) => {
 };
 const sorted = set => [...set].sort();
 
+test('tank inlet receives oil without supplying its isolated outlet or bypassing a stopped tank',()=>{
+ const nodes=[{id:'source',type:'tank',fuel:'diesel'},
+  {id:'storage',type:'tank',enabled:false,fuel:'gasoline'},
+  {id:'end',type:'outlet'}];
+ const edges=[pipe('receive','source:out','storage:in'),pipe('deliver','storage:out','end:in')];
+ const stopped=computeFlow(nodes,edges);
+ assert.deepEqual(sorted(stopped.activeEdges),['receive']);
+ assert.deepEqual(sorted(stopped.activePortFuels.get('storage:in')),['diesel']);
+ assert.equal(stopped.activePorts.has('storage:out'),false);
+ assert.equal(stopped.activeNodes.has('end'),false);
+ assert.equal(stopped.edgeDirections.get('receive'),'forward');
+ nodes[1].enabled=true;
+ const supplied=computeFlow(nodes,edges);
+ assert.deepEqual(sorted(supplied.activeEdgeFuels.get('receive')),['diesel']);
+ assert.deepEqual(sorted(supplied.activeEdgeFuels.get('deliver')),['gasoline']);
+ assert.deepEqual(sorted(supplied.activePortFuels.get('storage:out')),['gasoline']);
+ assert.equal(supplied.edgeDirections.get('deliver'),'forward');
+});
+
+test('outlet-only legacy tank graph retains supply and does not energize its unused inlet',()=>{
+ const result=computeFlow([{id:'legacy',type:'tank'},{id:'end',type:'outlet'}],
+  [pipe('old-line','legacy:out','end:in')]);
+ assert.deepEqual(sorted(result.activeEdges),['old-line']);
+ assert.equal(result.activePorts.has('legacy:out'),true);
+ assert.equal(result.activePorts.has('legacy:in'),false);
+});
+
 test('closing a chain valve drains its downstream pipes but preserves its inlet', () => {
   const nodes = [
     { id: 'tank', type: 'tank' },

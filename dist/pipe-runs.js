@@ -1,6 +1,6 @@
 /* Continuous drawing commits one explicit graph change; visual crossings stay separate. */
 const runPorts = {
-  point: ['joint'], ground: ['port'], text: [], tank: ['out'], valve: ['in', 'out'], elbow: ['in', 'out'],
+  point: ['joint'], ground: ['port'], text: [], tank: ['in', 'out'], valve: ['in', 'out'], elbow: ['in', 'out'],
   filter: ['in', 'out'], flowmeter: ['in', 'out'], pipe: ['in', 'out'],
   cap: ['in'], junction: ['in', 'out', 'branch'],
   cross: ['in', 'out', 'branch', 'top'], outlet: ['in']
@@ -8,7 +8,7 @@ const runPorts = {
 const validRunId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
 const runPoint = value => {
   if (!value || !Number.isFinite(value.x) || !Number.isFinite(value.y)
-      || Math.abs(value.x) > 10000 || Math.abs(value.y) > 10000) {
+      || Math.abs(value.x) > 40000 || Math.abs(value.y) > 40000) {
     throw new Error('油管座標無效或超出繪圖範圍');
   }
   return {x: value.x, y: value.y};
@@ -125,6 +125,7 @@ export function commitPipeRun(project, {start, end, points, kind = 'normal', idF
     const node = nodeMap.get(endpoint.node);
     const connected = next.edges.filter(edge => sameRunEnd(edge.from, endpoint) || sameRunEnd(edge.to, endpoint)).length;
     if (node.type === 'cap' && connected) throw new Error('盲封只能連接一段油管');
+    if (node.type === 'tank' && connected) throw new Error('油槽這個進／出口已接管，請在外部油管建立分支或先移除原油管');
     if (node.type === 'valve' && node.variant === 'riser' && connected) {
       throw new Error('立管閥這一側已接管，請使用另一側或先移除原油管');
     }
