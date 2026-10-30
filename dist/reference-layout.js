@@ -1,6 +1,6 @@
 /* Reference dimensions use diagram units; image pixels and component sizes stay unchanged. */
-const MAX_POSITION = 10000;
-const MAX_SIZE = 16000;
+const MAX_POSITION = 40000;
+const MAX_SIZE = 30000;
 const MAX_BASE_SIZE = 3000;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const validSize = (value, max) => Number.isFinite(value) && value >= 1 && value <= max;
@@ -45,12 +45,12 @@ export function transformReference(project, options = {}) {
   if (!project?.reference) throw new Error('請先載入圖片底圖');
   const previous = normalizeReference(project.reference);
   const {scale, x = previous.x, y = previous.y, moveLayout = false} = options;
-  if (!Number.isFinite(scale) || scale < 25 || scale > 500) {
-    throw new Error('底圖縮放比例須介於 25% 至 500%');
+  if (!Number.isFinite(scale) || scale < 25 || scale > 1000) {
+    throw new Error('底圖縮放比例須介於 25% 至 1000%');
   }
   if (!Number.isFinite(x) || !Number.isFinite(y)
       || Math.abs(x) > MAX_POSITION || Math.abs(y) > MAX_POSITION) {
-    throw new Error('底圖位置須介於 -10000 至 10000');
+    throw new Error('底圖位置須介於 -40000 至 40000');
   }
   if (typeof moveLayout !== 'boolean') throw new Error('請選擇是否同步調整元件位置');
   const width = previous.baseWidth * scale / 100;

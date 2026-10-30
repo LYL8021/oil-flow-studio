@@ -5,7 +5,7 @@ export function referenceSymbol(type, { fill, active = true, open = true, varian
     : 'var(--diagram-idle-fill)');
 
   if (type === 'tank') {
-    return `<g class="reference-tank"><circle r="46" fill="${bodyFill}"/><path d="M46 0h4" fill="none"/></g>`;
+    return `<g class="reference-tank"><circle r="46" fill="${bodyFill}"/></g>`;
   }
 
   if (type === 'ground') {

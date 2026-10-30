@@ -24,8 +24,8 @@ test('legacy references receive stable original dimensions and compatible defaul
   assert.deepEqual(normalized,{...reference,baseWidth:1721,baseHeight:914,x:0,y:0,visible:true,opacity:.22});
   assert.deepEqual(normalizeReference(normalized),normalized);
   assert.equal('baseWidth' in reference,false);
-  const limited=normalizeReference({...reference,x:-20000,y:20000,opacity:2,visible:false});
-  assert.deepEqual([limited.x,limited.y,limited.opacity,limited.visible],[-10000,10000,.6,false]);
+  const limited=normalizeReference({...reference,x:-50000,y:50000,opacity:2,visible:false});
+  assert.deepEqual([limited.x,limited.y,limited.opacity,limited.visible],[-40000,40000,.6,false]);
   const large=normalizeReference({...reference,width:6000,height:3000});
   assert.deepEqual([large.baseWidth,large.baseHeight],[3000,1500]);
 });
@@ -80,25 +80,55 @@ test('independent reference changes leave every node and bend in place', () => {
   assert.deepEqual([minimal.reference.width,minimal.reference.height],[500,250]);
 });
 
+test('1000 percent supports the largest original image and survives saved-project normalization', () => {
+  const source=diagram();
+  source.reference={dataUrl:image,width:3000,height:3000,baseWidth:3000,baseHeight:3000};
+  const changed=transformReference(source,{scale:1000,moveLayout:false});
+  assert.deepEqual([changed.reference.width,changed.reference.height],[30000,30000]);
+  assert.deepEqual(changed.nodes,source.nodes);
+  assert.deepEqual(changed.edges,source.edges);
+  const saved=JSON.parse(JSON.stringify(changed.reference));
+  assert.deepEqual(normalizeReference(saved),changed.reference);
+  assert.deepEqual(transformReference(changed,{scale:1000,moveLayout:false}),changed);
+  assert.deepEqual(normalizeReference({dataUrl:image,width:30000,height:15000}),
+    {dataUrl:image,width:30000,height:15000,baseWidth:3000,baseHeight:1500,x:0,y:0,visible:true,opacity:.22});
+  assert.throws(()=>transformReference(source,{scale:1000.01}),/25% 至 1000%/);
+});
+
+test('1000 percent spreads layout throughout the enlarged page and accepts expanded position bounds', () => {
+  const source=diagram();
+  source.reference={dataUrl:image,width:3000,height:3000,baseWidth:3000,baseHeight:3000,x:0,y:0};
+  source.nodes[2].x=2900;source.nodes[2].y=2900;
+  source.edges[0].waypoints=[{x:2800,y:2800}];
+  const changed=transformReference(source,{scale:1000,moveLayout:true});
+  assert.deepEqual([changed.nodes[2].x,changed.nodes[2].y],[29000,29000]);
+  assert.deepEqual(changed.edges[0].waypoints,[{x:28000,y:28000}]);
+  const translated=transformReference(source,{scale:100,x:40000,y:-40000,moveLayout:false});
+  assert.deepEqual([translated.reference.x,translated.reference.y],[40000,-40000]);
+  assert.deepEqual(normalizeReference(translated.reference),translated.reference);
+});
+
 test('out-of-range synchronized coordinates reject atomically without touching the source', () => {
   const source=diagram();source.nodes[2].x=9000;
   const before=structuredClone(source);
   assert.throws(()=>transformReference(source,{scale:500,moveLayout:true}),/超出位置範圍/);
   assert.deepEqual(source,before);
-  source.nodes[2].x=700;source.edges[0].waypoints[0].y=-9000;
+  source.nodes[2].x=700;source.edges[0].waypoints[0].y=-30000;
   const routeBefore=structuredClone(source);
   assert.throws(()=>transformReference(source,{scale:200,moveLayout:true}),/超出位置範圍/);
+  assert.deepEqual(source,routeBefore);
+  assert.throws(()=>transformReference(source,{scale:1000,moveLayout:true}),/超出位置範圍/);
   assert.deepEqual(source,routeBefore);
 });
 
 test('malformed references and transform options reject unsafe coercion and invalid dimensions', () => {
   const source=diagram();
-  for(const scale of [NaN,Infinity,'200',24,501])assert.throws(()=>transformReference(source,{scale}),/縮放比例/);
-  for(const position of [NaN,Infinity,'200',10001,-10001])assert.throws(()=>transformReference(source,{scale:100,x:position}),/底圖位置/);
+  for(const scale of [NaN,Infinity,'200',24,1000.01])assert.throws(()=>transformReference(source,{scale}),/縮放比例/);
+  for(const position of [NaN,Infinity,'200',40001,-40001])assert.throws(()=>transformReference(source,{scale:100,x:position}),/底圖位置/);
   assert.throws(()=>transformReference(source,{scale:100,moveLayout:'false'}),/同步調整/);
   assert.throws(()=>transformReference({nodes:[],edges:[]},{scale:100}),/先載入/);
   for(const reference of [null,{...source.reference,dataUrl:'https://example.com/image.png'},
-    {...source.reference,width:Infinity},{...source.reference,height:16001},
+    {...source.reference,width:Infinity},{...source.reference,height:30001},
     {...source.reference,baseWidth:1000,baseHeight:1000},
     {...source.reference,baseWidth:'2000',baseHeight:1000}])assert.throws(()=>normalizeReference(reference),/底圖/);
   assert.throws(()=>transformReference({...source,reference:{dataUrl:image,width:1,height:1}},{scale:25}),/尺寸超過範圍/);

@@ -21,8 +21,10 @@
 
 - `dist/index.html`：頁面；`dist/app.js`：操作與存檔；`dist/*.css`：外觀。
 - `dist/flow.js`：通油；`dist/pipes.js`：管線幾何；`dist/symbols.js`：元件圖示。
+- `dist/component-geometry.js`：元件縮放、旋轉及接點位置；油槽入口／出口各自調角度，進口不會經槽內直接連到出口。改動時須保留舊圖出口方位與供油開關的意義。
 - `dist/pipe-runs.js`：連續畫管及明確接管；`dist/pipe-order.js`：交叉層級；`dist/text-marks.js`：文字標記；`dist/operations.js`：閥位作業相容。
 - `dist/image-draft.js`、`dist/vendor/ocr/`：圖片候選辨識、模型與 WASM；保留完整資源及授權。候選須人工確認，不會自動接好管線。
+- `dist/pdf-import.js`、`dist/vendor/pdf/`：瀏覽器內 PDF 選頁、轉向與渲染，內附 PDF.js 6.4.299 的 renderer、worker、CMap、字型、WASM 及授權；發布時完整保留，不使用外站處理私人 PDF。`dist/reference-layout.js` 接受 25%～1000% 的底圖縮放，最大尺寸 30000；底圖位置、元件與油管轉折點座標支援 ±40000，各處幾何與匯入檢查須一致。
 - `tests/`：通油與管線測試；`scripts/package-offline.py`：更新離線下載成品。
 - `dist/feedback.js`、`dist/feedback.css`：共用修改建議介面；`server/`：匿名留言後端與 D1 遷移，獨立於 Vercel 靜態部署，維護前先讀 `server/README.md`。
 
@@ -32,7 +34,7 @@
 python3 -m http.server 4173 --directory dist
 ```
 
-開啟 http://localhost:4173，修改後重新整理；Windows 可改用 `py -3`。Node.js 測試用 `npm test`，不需安裝套件。若需同步離線下載版，執行 `python3 scripts/package-offline.py`，它會產生忽略於 Git 的 `portable/`，並更新既有 `dist/oil-flow-studio.zip`；離線單檔版不含完整 OCR 模型。
+開啟 http://localhost:4173，修改後重新整理；Windows 可改用 `py -3`。Node.js 測試用 `npm test`，不需安裝套件。若需同步離線下載版，執行 `python3 scripts/package-offline.py`，它會產生忽略於 Git 的 `portable/`，並更新既有 `dist/oil-flow-studio.zip`。離線單檔版支援元件旋轉、縮放、油槽雙接點與含 PDF 底圖的專案 JSON；原始 PDF 上傳及文字辨識請使用線上版。
 
 靜態部署選擇 `main`，輸出目錄為 `dist`，不需安裝依賴或框架建置。本機預覽命令不是部署建置命令。
 
