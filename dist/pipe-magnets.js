@@ -152,7 +152,7 @@ export function setupPipeEndpointDrag({svg,getMode,getProject,portInfo=component
   if(!session||session.pointerId!==event.pointerId)return;stop(event);
   const ended=session;session=null;release(ended.pointerId);clearHighlight();
   if(!ended.moved){onClick(ended.nodeId,ended.port);return;}
-  if(!ended.previewed){notify('端點位置無效，請調整管長或放開位置');return;}
+  if(!ended.previewed){onCancel(ended.original);notify('端點位置無效，請調整管長或放開位置');return;}
   try{
    let next=ended.next,edgeId;
    if(ended.target){
