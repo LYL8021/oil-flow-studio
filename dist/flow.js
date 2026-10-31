@@ -1,3 +1,5 @@
+import {sourcePortsForNode,inactiveSourcePort} from './source-settings.js?v=source-1';
+
 /**
  * Determine which ports and fuel types can be reached from enabled oil sources.
  * This is connectivity visualization, not pressure or flow-rate calculation.
@@ -19,6 +21,7 @@ export function computeFlow(nodes, edges) {
     outlet: ['in'],
   };
   const adjacency = new Map();
+  const nodeById = new Map(nodes.map(node=>[node.id,node]));
   const validEdges = [];
   const key = (node, port) => `${node}:${port}`;
   const connect = (a, b) => {
@@ -45,6 +48,8 @@ export function computeFlow(nodes, edges) {
   // Invalid or dangling pipes are ignored, allowing a partially edited drawing.
   for (const edge of edges) {
     if (!edge.from || !edge.to) continue;
+    if (inactiveSourcePort(nodeById.get(edge.from.node),edge.from.port)
+        || inactiveSourcePort(nodeById.get(edge.to.node),edge.to.port)) continue;
     const from = key(edge.from.node, edge.from.port);
     const to = key(edge.to.node, edge.to.port);
     if (!adjacency.has(from) || !adjacency.has(to)) continue;
@@ -65,14 +70,12 @@ export function computeFlow(nodes, edges) {
     queue.push({ port, fuel });
   };
   for (const node of nodes) {
-    const tankSource = node.type === 'tank' && node.enabled !== false;
-    // Ground endpoints supply only when explicitly enabled; appearance never infers a source.
-    const groundSource = node.type === 'ground' && node.enabled === true;
-    if (!tankSource && !groundSource) continue;
-    const source = key(node.id, groundSource ? 'port' : 'out');
-    sourcePorts.push(source);
-    // Legacy projects and unrecognized fuel values retain the original fuel oil.
-    reach(source, node.fuel === 'diesel' || node.fuel === 'gasoline' ? node.fuel : 'fuel');
+    for (const port of sourcePortsForNode(node)) {
+      const source=key(node.id,port);
+      sourcePorts.push(source);
+      // Legacy projects and unrecognized fuel values retain the original fuel oil.
+      reach(source, node.fuel === 'diesel' || node.fuel === 'gasoline' ? node.fuel : 'fuel');
+    }
   }
   for (let index = 0; index < queue.length; index += 1) {
     const { port, fuel } = queue[index];

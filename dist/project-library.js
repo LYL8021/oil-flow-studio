@@ -1,5 +1,12 @@
 import {createProjectStore} from './project-store.js?v=operations-1';
-import {operationMatches} from './operations.js?v=text-1';
+import {operationMatches} from './operations.js?v=source-ops-1';
+import {normalizeTankPortModes,normalizeGroundMode} from './source-settings.js?v=source-1';
+
+function librarySourceSettings(node) {
+  if(node?.type==='tank')return JSON.stringify({enabled:node.enabled!==false,portModes:normalizeTankPortModes(node)});
+  if(node?.type==='ground')return normalizeGroundMode(node);
+  return null;
+}
 
 export function setupProjectLibrary({getProject, normalizeProject, setProject, setTitle, confirm, notify, downloadProject, isOperationMode=()=>false, onChange=()=>{}, onOperationsSaved=()=>{}}) {
   const el = id => document.getElementById(id);
@@ -35,7 +42,14 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
   }
   function comparison(project, ignoreValves=false) {
     const normalized = normalizeProject(project);
-    if(ignoreValves){delete normalized.operations;normalized.nodes.forEach(node=>{if(node.type==='valve')delete node.open;});}
+    if(ignoreValves){
+      delete normalized.operations;
+      normalized.nodes.forEach(node=>{
+        if(node.type==='valve')delete node.open;
+        if(node.type==='tank'){delete node.enabled;delete node.portModes;}
+        if(node.type==='ground'){delete node.enabled;delete node.flowMode;}
+      });
+    }
     return JSON.stringify(normalized);
   }
   function dirty() {
@@ -46,7 +60,11 @@ export function setupProjectLibrary({getProject, normalizeProject, setProject, s
     if(!isOperationMode())return comparison(current)!==comparison(saved);
     if(comparison(current,true)!==comparison(saved,true))return true;
     if(comparison(current)===comparison(saved))return false;
-    return !(current.operations||[]).some(operation=>operationMatches(current,operation));
+    const savedNodes=new Map(saved.nodes.map(node=>[node.id,node]));
+    const changedSources=current.nodes.filter(node=>['tank','ground'].includes(node.type)
+      && librarySourceSettings(node)!==librarySourceSettings(savedNodes.get(node.id)));
+    return !(current.operations||[]).some(operation=>operationMatches(current,operation)
+      && changedSources.every(node=>operation.sources?.some(source=>source.id===node.id&&source.type===node.type)));
   }
   function updateSubmit() {
     const updating = active && nameKey(input.value) === nameKey(active.name);

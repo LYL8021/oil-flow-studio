@@ -1,0 +1,19 @@
+/* The crossing underlay remains, but shared endpoints do not paint dark endcaps. */
+.pipe .pipe-border,
+.pipe .pipe-line,
+.pipe .pipe-secondary,
+.pipe .pipe-tertiary,
+.pipe .flow-dashes { stroke-linecap:butt; }
+
+.pipe .pipe-join { fill:#b9c1cc; stroke:none; pointer-events:none; }
+[data-theme="dark"] .pipe .pipe-join { fill:#718298; }
+.pipe.active .pipe-join { fill:var(--fluid-line,var(--orange)); }
+
+/* The small graph marker should blend into the shared pipe rather than ring it. */
+.pipe-point .joint-dot { stroke:none; fill:#b9c1cc; }
+[data-theme="dark"] .pipe-point .joint-dot { fill:#718298; }
+.pipe-point.active .joint-dot { fill:var(--fluid-line,var(--orange)); }
+
+/* A diesel/gasoline mixture has no fuel-oil colour; use its actual base supply. */
+.pipe.active.fluid-mixed .pipe-join,
+.pipe-point.active.fluid-mixed .joint-dot { fill:var(--mixed-base); }

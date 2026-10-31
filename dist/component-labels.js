@@ -1,10 +1,10 @@
-import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js';
+import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=tank3000-flange-1';
 
 /* Identifier positions follow the visible glyph; they remain upright while it turns. */
 function symbolBounds(node) {
   if (node.type === 'valve') {
     if (node.variant === 'riser') return [-35,-23,23,35];
-    return [-36,node.variant === 'motor' ? -43 : -19,36,19];
+    return [-29,node.variant === 'motor' ? -43 : -19,29,19];
   }
   const bounds = {
     ground:[-16,-10,16,10], filter:[-36,-22,36,22],

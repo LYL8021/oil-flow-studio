@@ -20,10 +20,10 @@
 ## 檔案與命令
 
 - `dist/index.html`：頁面；`dist/app.js`：操作與存檔；`dist/*.css`：外觀。
-- `dist/flow.js`：通油；`dist/pipes.js`：管線幾何；`dist/symbols.js`：元件圖示。
+- `dist/flow.js`：通油；`dist/source-settings.js`：油槽每口 inlet／outlet／closed 與 ground source／receive／idle 模式；`dist/pipes.js`：管線幾何；`dist/pipe-visuals.js`／`.css`：相連管段無黑線與閥門平口接合；`dist/symbols.js`：元件圖示。
 - `dist/component-clipboard.js`：單元件與單段油管複製貼上；`dist/component-labels.js`：貼近圖示的編號排位；`dist/drawing-actions.js`：新圖面及保留／不保留元件的底圖套用。
-- `dist/component-geometry.js`：元件縮放、旋轉及接點位置；油槽入口／出口各自調角度，進口不會經槽內直接連到出口。改動時須保留舊圖出口方位與供油開關的意義。
-- `dist/pipe-runs.js`：連續畫管及明確接管；`dist/pipe-order.js`：交叉層級；`dist/text-marks.js`：文字標記；`dist/operations.js`：閥位作業相容。
+- `dist/component-geometry.js`：元件縮放、旋轉及接點位置；`maxNodeScale()` 讓油槽上限3000%、其他元件400%。油槽兩個實體口可各自調角度與用途（雙進／雙出／停用），仍保留舊接點 ID 與角度欄位，槽內不直接連通。一般閥門接點在法蘭面±29，立管閥維持中心；獨立直管長度保留小數以支援精確磁吸。
+- `dist/pipe-runs.js`：連續畫管及明確接管；`dist/pipe-order.js`：交叉層級；`dist/text-marks.js`：文字標記；`dist/operations.js`：閥位與來源模式作業相容，新 sources 可保存槽口用途／來油模式，舊作業無此欄位時不更動來源，任何作業均不改油品。磁吸拖管以螢幕距離判斷，放開時真正接管、可復原，不能只移動外觀或自動接通交叉。
 - `dist/image-draft.js`、`dist/vendor/ocr/`：圖片候選辨識、模型與 WASM；保留完整資源及授權。候選須人工確認，不會自動接好管線。
 - `dist/pdf-import.js`、`dist/vendor/pdf/`：瀏覽器內 PDF 選頁、轉向與渲染，內附 PDF.js 6.4.299 的 renderer、worker、CMap、字型、WASM 及授權；發布時完整保留，不使用外站處理私人 PDF。`dist/reference-layout.js` 接受 25%～1000% 的底圖縮放，最大尺寸 30000；底圖位置、元件與油管轉折點座標支援 ±40000，各處幾何與匯入檢查須一致。
 - `tests/`：通油與管線測試；`scripts/package-offline.py`：更新離線下載成品。

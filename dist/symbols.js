@@ -34,7 +34,7 @@ export function referenceSymbol(type, { fill, active = true, open = true, varian
         : '<path d="m-8 8 16-16" fill="none" stroke-width="2"/>';
       return `<g class="reference-valve reference-riser-valve"><circle r="23" fill="${bodyFill}"/><circle r="14" fill="${bodyFill}" stroke-width="1.6"/>${bolts}<path d="m-10 10-17 17m-3-9 12 12m-17-8 13 13" fill="none" stroke-width="1.8"/>${closed}</g>`;
     }
-    const pipe = '<path d="M-36 0h12m48 0h12" fill="none"/>';
+    const pipe = '<path d="M-29 0h5m48 0h5" fill="none"/>';
     const flanges = '<path d="M-29-19v38M29-19v38" fill="none" stroke-width="2"/>';
     const body = `<path d="M-24-15v30L0 0Zm48 0v30L0 0Z" fill="${bodyFill}"/>`;
     const roundCenter = variant === 'round'

@@ -75,6 +75,50 @@ test('coordinate and capacity limits reject atomically and fresh IDs never reuse
  for(const invalid of [null,{...source,type:'unknown'},{...source,x:40001},{...source,enabled:'true'},{...source,scale:Infinity}])assert.throws(()=>copyComponent(invalid));
 });
 
+test('large tank copies retain independent source roles with detached nested settings',()=>{
+ const node={...source,scale:30,enabled:true,portModes:{in:'outlet',out:'outlet'}};
+ const clipboard=copyComponent(node);
+ assert.deepEqual(clipboard.portModes,node.portModes);assert.notEqual(clipboard.portModes,node.portModes);
+ const copied=pasteComponent({nodes:[node],edges:[]},clipboard,{position:{x:2000,y:3000},idFactory:ids()});
+ const tank=copied.project.nodes.find(n=>n.id===copied.nodeId);
+ assert.equal(tank.scale,30);assert.equal(tank.enabled,true);assert.equal(tank.fuel,'gasoline');
+ assert.deepEqual(tank.portModes,{in:'outlet',out:'outlet'});assert.notEqual(tank.portModes,clipboard.portModes);
+ clipboard.portModes.in='closed';node.portModes.out='closed';
+ assert.deepEqual(tank.portModes,{in:'outlet',out:'outlet'});
+ const receivers=[{id:'a',type:'outlet',x:0,y:0},{id:'b',type:'outlet',x:0,y:0}];
+ const edges=[{id:'first',from:{node:tank.id,port:'in'},to:{node:'a',port:'in'}},
+  {id:'second',from:{node:tank.id,port:'out'},to:{node:'b',port:'in'}}];
+ const flow=computeFlow([tank,...receivers],edges);
+ assert.deepEqual([...flow.activeEdges].sort(),['first','second']);
+ assert.deepEqual([...flow.activeEdgeFuels.get('first')],['gasoline']);
+ const inletCopy=pasteComponent({nodes:[],edges:[]},copyComponent({...tank,portModes:{in:'inlet',out:'inlet'}}),{idFactory:ids()}).project.nodes[0];
+ assert.deepEqual(inletCopy.portModes,{in:'inlet',out:'inlet'});
+ const receivingFlow=computeFlow([inletCopy,...receivers],edges.map(edge=>({...edge,from:{...edge.from,node:inletCopy.id}})));
+ assert.equal(receivingFlow.activeEdges.size,0);
+});
+
+test('idle ground copies remain idle when connected to an external live source',()=>{
+ const ground={id:'idle',type:'ground',variant:'sink',x:0,y:0,code:'UG-01',flowMode:'idle',enabled:false,fuel:'diesel',station:'倒打端'};
+ const result=pasteComponent({nodes:[ground],edges:[]},copyComponent(ground),{position:{x:100,y:100},idFactory:ids()});
+ const pasted=result.project.nodes.at(-1);
+ assert.equal(pasted.flowMode,'idle');assert.equal(pasted.enabled,false);assert.equal(pasted.station,'倒打端');
+ const tank={id:'source',type:'tank',x:0,y:0,enabled:true},joint={id:'joint',type:'point',x:0,y:0};
+ const edges=[{id:'original-idle',from:{node:'source',port:'out'},to:{node:ground.id,port:'port'}},
+  {id:'copied-idle',from:{node:'source',port:'out'},to:{node:pasted.id,port:'port'}},
+  {id:'live-branch',from:{node:'source',port:'out'},to:{node:'joint',port:'joint'}}];
+ const flow=computeFlow([...result.project.nodes,tank,joint],edges);
+ assert.deepEqual([...flow.activeEdges],['live-branch']);
+ assert.equal(flow.activeNodes.has(pasted.id),false);
+ assert.equal(Object.hasOwn(copyComponent({...source}),'portModes'),false);
+ assert.equal(Object.hasOwn(copyComponent({...ground,flowMode:undefined}),'flowMode'),false);
+});
+
+test('explicit tank port settings normalize into a fresh object and reject invalid containers',()=>{
+ assert.deepEqual(copyComponent({...source,portModes:{in:'closed'}}).portModes,{in:'closed',out:'outlet'});
+ for(const portModes of [null,[],true,'outlet'])assert.throws(()=>copyComponent({...source,portModes}),/接管口用途/);
+ assert.throws(()=>copyComponent({...source,flowMode:1}),/文字資料/);
+});
+
 test('pipe copy carries complete route and display settings without equipment endpoints',()=>{
  const edge=main().edges[0],route=[{x:0,y:0},{x:80,y:0},{x:80,y:40},{x:100,y:40}];
  const snapshot=copyPipeSegment({...edge,layer:9},route);

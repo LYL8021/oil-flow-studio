@@ -1,4 +1,5 @@
-import {captureOperation,applyOperation,operationMatches,normalizeOperations,topologySignature} from './operations.js?v=text-1';
+import {captureOperation,applyOperation,operationMatches,normalizeOperations,topologySignature} from './operations.js?v=source-ops-1';
+import {normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode} from './source-settings.js?v=source-1';
 
 export function setupOperationPanel({getProject,getMode,library,apply,edit,operate,confirm,notify}) {
   const el=id=>document.getElementById(id),dialog=el('operationDialog');
@@ -6,6 +7,7 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,opera
   let selectedId=null,diagramId=null,renaming=null,busy=false,listRequest=0;
   const presets=()=>getProject().operations||[];
   const valves=()=>getProject().nodes.filter(node=>node.type==='valve');
+  const sources=()=>getProject().nodes.filter(node=>node.type==='tank'||node.type==='ground');
   function message(text='',error=false){el('operationMessage').textContent=text;el('operationMessage').classList.toggle('is-error',error);}
   async function run(action){
     if(busy)return;busy=true;dialog.setAttribute('aria-busy','true');dialog.querySelectorAll('button,input').forEach(node=>node.disabled=true);
@@ -43,24 +45,25 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,opera
     });
     if(!operating)return;
     const allValves=valves(),openCount=allValves.filter(node=>node.open!==false).length;
-    const canSave=!!context&&allValves.length>0;
-    for(const id of ['saveOperationBtn','newOperationBtn','saveOperationInline']){el(id).disabled=!canSave;el(id).title=!context?'請先選擇一張已儲存管線圖':!allValves.length?'這張管線圖尚無閥門':'儲存目前閥門配置';}
-    el('operationDiagramLabel').textContent=context?`「${context.name}」的閥門配置`:'先選擇一張已儲存管線圖';
+    const allSources=sources(),canSave=!!context&&(allValves.length>0||allSources.length>0);
+    for(const id of ['saveOperationBtn','newOperationBtn','saveOperationInline']){el(id).disabled=!canSave;el(id).title=!context?'請先選擇一張已儲存管線圖':!allValves.length&&!allSources.length?'這張管線圖尚無閥門或油源元件':'儲存目前閥門與油源配置';}
+    el('operationDiagramLabel').textContent=context?`「${context.name}」的閥門與來源配置`:'先選擇一張已儲存管線圖';
     const current=matchingOperation(),matches=current&&operationMatches(project,current);
     el('operationStatusText').textContent=!context?'先選管線圖，再選擇作業':current?(matches?`目前作業：${current.name}`:`手動調整中 · 原作業：${current.name}`):'目前配置：手動調整';
     el('operationCounts').textContent=`${openCount} 開 · ${allValves.length-openCount} 關`;
     const target=el('operationList');target.replaceChildren();
     if(!context){empty(target,'圖面與作業，分開整理','左邊選圖，這裡就會列出那張圖的常用作業。');return;}
-    if(!presets().length){empty(target,'儲存第一項作業','先調整閥門開關，再按「＋」或「儲存作業」。');return;}
-    const signature=topologySignature(project),ids=new Set(allValves.map(node=>node.id));
+    if(!presets().length){empty(target,'儲存第一項作業','先調整閥門、油槽接管用途與土端模式，再按「＋」或「儲存作業」。');return;}
+    const signature=topologySignature(project),ids=new Set(allValves.map(node=>node.id)),sourceById=new Map(allSources.map(node=>[node.id,node]));
     for(const operation of presets()){
-      const compatible=operation.signature===signature&&operation.valves.length===ids.size&&operation.valves.every(valve=>ids.has(valve.id));
+      const compatible=operation.signature===signature&&operation.valves.length===ids.size&&operation.valves.every(valve=>ids.has(valve.id))
+        && (!operation.sources||operation.sources.every(source=>sourceById.get(source.id)?.type===source.type));
       const card=document.createElement('div');card.className='operation-card'+(matches&&current.id===operation.id?' is-current':'')+(!compatible?' is-incompatible':'');
-      const activate=button('',()=>run(async()=>{const next=applyOperation(getProject(),operation);selectedId=operation.id;apply(next);notify(`已套用「${operation.name}」的閥門配置`);}), 'operation-apply');
+      const activate=button('',()=>run(async()=>{const next=applyOperation(getProject(),operation);selectedId=operation.id;apply(next);notify(`已套用「${operation.name}」的${operation.sources?'閥門與來源設定':'閥門配置'}`);}), 'operation-apply');
       activate.setAttribute('aria-label',`套用作業 ${operation.name}`);activate.disabled=!compatible;
       const name=document.createElement('strong');name.textContent=operation.name;
       const count=document.createElement('span');const opened=operation.valves.filter(valve=>valve.open).length;
-      count.textContent=compatible?`${opened} 開 · ${operation.valves.length-opened} 關${matches&&current.id===operation.id?' · 目前作業':''}`:'管線已變更 · 請重新儲存此作業';activate.append(name,count);
+      count.textContent=compatible?`${opened} 開 · ${operation.valves.length-opened} 關 · ${operation.sources?operation.sources.length+' 個來源設定':'僅閥位'}${matches&&current.id===operation.id?' · 目前作業':''}`:'管線已變更 · 請重新儲存此作業';activate.append(name,count);
       const actions=document.createElement('div');actions.className='operation-card-actions';
       const rename=button('改名',()=>openDialog({rename:operation}));rename.setAttribute('aria-label',`改名作業 ${operation.name}`);
       const remove=button('刪除',()=>confirm(`刪除作業「${operation.name}」？`,'只移除此作業設定，管線圖與目前閥門開關會保留。',()=>run(async()=>{
@@ -74,15 +77,30 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,opera
     el('operationOpenCount').textContent=`${opened} 個開啟`;el('operationClosedCount').textContent=`${all.length-opened} 個關閉`;
     const list=el('operationValvePreview');list.replaceChildren();
     for(const valve of all){const row=document.createElement('div');row.className='operation-valve-row';const name=document.createElement('strong');name.textContent=`${valve.code} · ${valve.name}`;const state=document.createElement('span');state.className='operation-valve-state'+(valve.open!==false?' is-open':'');state.textContent=valve.open!==false?'開啟':'關閉';row.append(name,state);list.append(row);}
+    const allSources=sources();
+    if(allSources.length){
+      const heading=document.createElement('p');heading.className='operation-section-help';heading.textContent=`來源與接管用途 · ${allSources.length} 個元件`;list.append(heading);
+      const tankLabels={inlet:'進口',outlet:'出口',closed:'關閉'},groundLabels={source:'外部來油',receive:'接收來油',idle:'靜置／不輸送'};
+      for(const source of allSources){
+        const row=document.createElement('div');row.className='operation-preview-row';row.dataset.sourcePreview=source.id;
+        const name=document.createElement('strong');name.textContent=source.code||source.name||(source.type==='tank'?'油槽':'出／入土端');
+        const state=document.createElement('span');state.className='operation-valve-state'+(sourcePortsForNode(source).length?' is-open':'');
+        if(source.type==='tank'){
+          const modes=normalizeTankPortModes(source);
+          state.textContent=`A ${tankLabels[modes.in]} · B ${tankLabels[modes.out]} · ${sourcePortsForNode(source).length?'有供油':'不供油'}`;
+        }else state.textContent=groundLabels[normalizeGroundMode(source)];
+        row.append(name,state);list.append(row);
+      }
+    }
   }
   function updateSubmit(){const same=presets().find(operation=>key(operation.name)===key(el('operationName').value));el('operationSubmit').textContent=renaming?'確認改名':same?'更新作業配置':'儲存新作業';}
   function openDialog({rename=null,newOperation=false}={}){
     if(busy)return;
     if(!library.context()){notify('請先選擇或儲存一張固定管線圖');return;}
-    if(!rename&&!valves().length){notify('這張管線圖尚無閥門');return;}
+    if(!rename&&!valves().length&&!sources().length){notify('這張管線圖尚無閥門或油源元件');return;}
     renaming=rename;message();
     el('operationDialogTitle').textContent=rename?'修改作業名稱':'儲存作業配置';
-    el('operationDialogDescription').textContent=rename?'只修改名稱，原有作業的閥門配置保持不變。':'保存畫布上每一顆閥門的開關；管線與元件位置保持不變。';
+    el('operationDialogDescription').textContent=rename?'只修改名稱，原有作業的閥位與油源設定保持不變。':'保存閥門開關、油槽接管口用途與出／入土端模式；位置與油品保持不變。';
     el('operationName').value=rename?rename.name:newOperation?'':matchingOperation()?.name||'';
     el('operationValveSection').hidden=!!rename;preview();updateSubmit();dialog.showModal();el('operationName').focus();el('operationName').select();
   }
@@ -98,7 +116,7 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,opera
         const next=normalizeOperations(presets().map(operation=>operation.id===renaming.id?{...operation,name,updatedAt:Date.now()}:operation));
         await library.updateOperations(next,{requireDiagramMatch:false});dialog.close();sync();notify('作業名稱已更新');return;
       }
-      if(existing&&existing.id!==selectedId){confirm(`更新作業「${existing.name}」？`,'同名作業已存在，確定後會用目前畫布的閥門開關取代原配置。',()=>run(()=>saveConfiguration(name,existing)));}
+      if(existing&&existing.id!==selectedId){confirm(`更新作業「${existing.name}」？`,'同名作業已存在，確定後會用目前的閥位與油源模式取代原配置。',()=>run(()=>saveConfiguration(name,existing)));}
       else await saveConfiguration(name,existing);
     });
   };
