@@ -1,5 +1,7 @@
-// Operation presets describe valve positions for one fixed diagram. They never
-// carry source settings, geometry, or executable actions.
+import {normalizeTankPortModes,normalizeGroundMode} from './source-settings.js?v=source-1';
+
+// Presets describe operational valve and source settings for one fixed diagram.
+// They never carry geometry, oil-product changes, or executable actions.
 const operationIdPattern = /^[a-zA-Z0-9_-]{1,100}$/;
 const operationSignaturePrefix = 'topology-v1:';
 const validOperationId = value => typeof value === 'string' && operationIdPattern.test(value);
@@ -20,6 +22,47 @@ function operationName(value) {
 
 function operationNameKey(name) {
   return name.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+function normalizeOperationSources(value) {
+  if (!Array.isArray(value) || value.length>400) {
+    throw operationProblem('invalid-operation','作業的油源設定無效或超過 400 個。');
+  }
+  const ids=new Set(), tankModes=new Set(['inlet','outlet','closed']);
+  return value.map(source=>{
+    if (!source || !validOperationId(source.id) || ids.has(source.id)
+        || !['tank','ground'].includes(source.type) || typeof source.enabled!=='boolean') {
+      throw operationProblem('invalid-operation','作業的油源編號、種類或啟用狀態無效。');
+    }
+    ids.add(source.id);
+    if(source.type==='tank'){
+      if(!source.portModes || typeof source.portModes!=='object' || Array.isArray(source.portModes)
+          || !tankModes.has(source.portModes.in) || !tankModes.has(source.portModes.out)) {
+        throw operationProblem('invalid-operation','作業的油槽接管口用途無效。');
+      }
+      return {id:source.id,type:'tank',enabled:source.enabled,
+        portModes:{in:source.portModes.in,out:source.portModes.out}};
+    }
+    if(!['source','receive','idle'].includes(source.flowMode)
+        || source.enabled!==(source.flowMode==='source')) {
+      throw operationProblem('invalid-operation','作業的出入土端來油模式無效。');
+    }
+    return {id:source.id,type:'ground',enabled:source.enabled,flowMode:source.flowMode};
+  });
+}
+
+function sourceState(node) {
+  if(node.type==='tank')return {id:node.id,type:'tank',enabled:node.enabled!==false,
+    portModes:normalizeTankPortModes(node)};
+  const flowMode=normalizeGroundMode(node);
+  return {id:node.id,type:'ground',enabled:flowMode==='source',flowMode};
+}
+
+function sourceMatches(node,setting) {
+  const state=sourceState(node);
+  return state.enabled===setting.enabled && (state.type==='tank'
+    ? state.portModes.in===setting.portModes.in && state.portModes.out===setting.portModes.out
+    : state.flowMode===setting.flowMode);
 }
 
 function normalizeOperation(value) {
@@ -54,7 +97,8 @@ function normalizeOperation(value) {
       times[key] = value[key];
     }
   }
-  return {id:value.id, name, valves, signature:value.signature, ...times};
+  const sources=value.sources===undefined?undefined:normalizeOperationSources(value.sources);
+  return {id:value.id, name, valves, ...(sources===undefined?{}:{sources}), signature:value.signature, ...times};
 }
 
 export function normalizeOperations(value) {
@@ -115,6 +159,7 @@ export function captureOperation(project, {id, name, createdAt} = {}) {
   const generatedId = globalThis.crypto?.randomUUID?.() || `op_${now.toString(36)}_${Math.random().toString(36).slice(2)}`;
   return normalizeOperation({id:id ?? generatedId, name,
     valves:project.nodes.filter(node => node.type === 'valve').map(node => ({id:node.id, open:node.open !== false})),
+    sources:project.nodes.filter(node=>node.type==='tank'||node.type==='ground').map(sourceState),
     signature, createdAt:createdAt ?? now, updatedAt:Math.max(now, createdAt ?? now)});
 }
 
@@ -128,21 +173,36 @@ function compatibleOperation(project, value) {
   if (valves.length !== desired.size || valves.some(valve => !desired.has(valve.id))) {
     throw operationProblem('incompatible', '這項作業沒有完整對應目前的閥門，請重新檢查並儲存。');
   }
-  return {operation, valves, desired};
+  const byId=new Map(project.nodes.map(node=>[node.id,node]));
+  const sources=(operation.sources||[]).map(setting=>{
+    const node=byId.get(setting.id);
+    if(!node || node.type!==setting.type) {
+      throw operationProblem('incompatible','這項作業的油源設定無法對應目前元件，請重新檢查並儲存。');
+    }
+    return {node,setting};
+  });
+  return {operation, valves, desired, sources};
 }
 
 export function applyOperation(project, value) {
-  const {desired} = compatibleOperation(project, value);
+  const {desired,sources} = compatibleOperation(project, value);
   let next;
   try { next = structuredClone(project); }
   catch { throw operationProblem('invalid-project', '管線圖資料無法複製，尚未套用作業。'); }
   for (const node of next.nodes) if (node.type === 'valve') node.open = desired.get(node.id);
+  const byId=new Map(next.nodes.map(node=>[node.id,node]));
+  for(const {setting} of sources){
+    const node=byId.get(setting.id);node.enabled=setting.enabled;
+    if(setting.type==='tank')node.portModes={...setting.portModes};
+    else node.flowMode=setting.flowMode;
+  }
   return next;
 }
 
 export function operationMatches(project, value) {
   try {
-    const {valves, desired} = compatibleOperation(project, value);
-    return valves.every(valve => (valve.open !== false) === desired.get(valve.id));
+    const {valves, desired,sources} = compatibleOperation(project, value);
+    return valves.every(valve => (valve.open !== false) === desired.get(valve.id))
+      && sources.every(({node,setting})=>sourceMatches(node,setting));
   } catch { return false; }
 }

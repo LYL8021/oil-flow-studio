@@ -14,8 +14,8 @@ test('compact ground symbol and its saved logical port remain aligned',()=>{
 
 test('identifiers remain close below rotated and scaled visible equipment',()=>{
  assert.equal(identifierLayout({type:'valve'}).y,37);
- assert.equal(identifierLayout({type:'valve',rotation:90}).y,54);
- assert.equal(identifierLayout({type:'valve',rotation:90,scale:2}).y,90);
+ assert.equal(identifierLayout({type:'valve',rotation:90}).y,47);
+ assert.equal(identifierLayout({type:'valve',rotation:90,scale:2}).y,76);
  assert.equal(identifierLayout({type:'valve',variant:'motor',rotation:180}).y,61);
  assert.equal(identifierLayout({type:'cross'}).anchor,'middle');
  assert.equal(identifierLayout({type:'cross'}).y,51);

@@ -1,10 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-
-// A data URL keeps the buildless site's .js source testable without package.json.
-const source = await readFile(new URL('../dist/flow.js', import.meta.url), 'utf8');
-const { computeFlow } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+import { computeFlow } from '../dist/flow.js';
 const pipe = (id, a, b) => {
   const endpoint = value => {
     const [node, port] = value.split(':');
@@ -13,6 +9,83 @@ const pipe = (id, a, b) => {
   return { id, from: endpoint(a), to: endpoint(b) };
 };
 const sorted = set => [...set].sort();
+
+test('two outlet tank nozzles supply independent lines and both stop with the tank',()=>{
+ const nodes=[{id:'tank',type:'tank',enabled:true,fuel:'diesel',portModes:{in:'outlet',out:'outlet'}},
+  {id:'a',type:'cap'},{id:'b',type:'outlet'}];
+ const edges=[pipe('a','tank:in','a:in'),pipe('b','b:in','tank:out')];
+ const result=computeFlow(nodes,edges);
+ assert.deepEqual(sorted(result.activeEdges),['a','b']);
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('a')),['diesel']);
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('b')),['diesel']);
+ assert.equal(result.edgeDirections.get('a'),'forward');
+ assert.equal(result.edgeDirections.get('b'),'reverse');
+ nodes[0].enabled=false;assert.equal(computeFlow(nodes,edges).activeEdges.size,0);
+});
+
+test('two inlet nozzles receive independent products without emitting the enabled tank product',()=>{
+ const nodes=[{id:'a',type:'ground',flowMode:'source',fuel:'diesel'},
+  {id:'b',type:'ground',flowMode:'source',fuel:'gasoline'},
+  {id:'tank',type:'tank',enabled:true,fuel:'fuel',portModes:{in:'inlet',out:'inlet'}}];
+ const edges=[pipe('a','a:port','tank:in'),pipe('b','b:port','tank:out')];
+ const result=computeFlow(nodes,edges);
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('a')),['diesel']);
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('b')),['gasoline']);
+ assert.deepEqual(sorted(result.activeNodeFuels.get('tank')),['diesel','gasoline']);
+ assert.equal(result.edgeDirections.get('a'),'forward');assert.equal(result.edgeDirections.get('b'),'forward');
+});
+
+test('swapped tank roles can discharge from the old inlet while receiving separately at the old outlet',()=>{
+ const nodes=[{id:'tank',type:'tank',enabled:true,fuel:'gasoline',portModes:{in:'outlet',out:'inlet'}},
+  {id:'station',type:'ground',flowMode:'source',fuel:'diesel'},{id:'end',type:'cap'}];
+ const edges=[pipe('delivery','tank:in','end:in'),pipe('receive','station:port','tank:out')];
+ const result=computeFlow(nodes,edges);
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('delivery')),['gasoline']);
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('receive')),['diesel']);
+ nodes[0].enabled=false;
+ assert.deepEqual(sorted(computeFlow(nodes,edges).activeEdges),['receive']);
+});
+
+test('a closed tank nozzle blocks only its attached line, including another external oil source',()=>{
+ const nodes=[{id:'source',type:'tank',fuel:'diesel'},
+  {id:'storage',type:'tank',enabled:true,fuel:'gasoline',portModes:{in:'closed',out:'inlet'}},
+  {id:'station',type:'ground',flowMode:'source',fuel:'fuel'}];
+ const edges=[pipe('blocked','source:out','storage:in'),pipe('receive','station:port','storage:out')];
+ const result=computeFlow(nodes,edges);
+ assert.deepEqual(sorted(result.activeEdges),['receive']);
+ assert.equal(result.activePorts.has('storage:in'),false);
+ assert.equal(result.edgeDirections.has('blocked'),false);
+ assert.deepEqual(sorted(result.activePortFuels.get('storage:out')),['fuel']);
+});
+
+test('either ground glyph can supply in reverse, receive, or idle independently of old enabled flags',()=>{
+ const nodes=[{id:'rise',type:'ground',variant:'rise',enabled:true,flowMode:'receive'},
+  {id:'sink',type:'ground',variant:'sink',enabled:false,flowMode:'source',fuel:'diesel'}];
+ const edges=[pipe('line','rise:port','sink:port')];
+ let result=computeFlow(nodes,edges);
+ assert.equal(result.edgeDirections.get('line'),'reverse');
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('line')),['diesel']);
+ nodes[0].flowMode='source';nodes[0].fuel='gasoline';nodes[1].flowMode='receive';
+ result=computeFlow(nodes,edges);
+ assert.equal(result.edgeDirections.get('line'),'forward');
+ assert.deepEqual(sorted(result.activeEdgeFuels.get('line')),['gasoline']);
+ nodes[1].flowMode='idle';result=computeFlow(nodes,edges);
+ assert.equal(result.activeEdges.size,0);assert.equal(result.activeNodes.has('sink'),false);
+ assert.equal(result.edgeDirections.size,0);
+});
+
+test('an idle station branch stays gray while another receiving branch and upstream remain supplied',()=>{
+ const nodes=[{id:'tank',type:'tank'}, {id:'joint',type:'point'},
+  {id:'idle',type:'ground',enabled:true,flowMode:'idle'},
+  {id:'receive',type:'ground',flowMode:'receive'}];
+ const edges=[pipe('up','tank:out','joint:joint'),pipe('idle-line','joint:joint','idle:port'),
+  pipe('receiving','joint:joint','receive:port')];
+ const result=computeFlow(nodes,edges);
+ assert.deepEqual(sorted(result.activeEdges),['receiving','up']);
+ assert.equal(result.activeNodes.has('idle'),false);
+ assert.equal(result.activeNodes.has('receive'),true);
+ assert.equal(result.edgeDirections.has('idle-line'),false);
+});
 
 test('tank inlet receives oil without supplying its isolated outlet or bypassing a stopped tank',()=>{
  const nodes=[{id:'source',type:'tank',fuel:'diesel'},

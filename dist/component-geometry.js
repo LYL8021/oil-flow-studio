@@ -7,9 +7,14 @@ export function normalizeAngle(value, fallback = 0) {
   return clean(((angle % 360) + 360) % 360);
 }
 
+/** Tanks can match large site plans; other equipment keeps its existing limit. */
+export function maxNodeScale(node) {
+  return node?.type === 'tank' ? 30 : node?.type === 'point' ? 1 : 4;
+}
+
 export function nodeScale(node) {
   if (node?.type === 'point') return 1;
-  return Number.isFinite(node?.scale) ? clamp(node.scale, .25, 4) : 1;
+  return Number.isFinite(node?.scale) ? clamp(node.scale, .25, maxNodeScale(node)) : 1;
 }
 
 /** Angles are relative to the tank; rotation moves both independently placed nozzles. */
@@ -34,11 +39,12 @@ export function componentPort(node, port) {
     const angles=normalizeTankPorts(node), angle=angles[port === 'in' ? 'inAngle' : 'outAngle']*Math.PI/180;
     const dx=clean(Math.cos(angle)),dy=clean(Math.sin(angle));local=[50*dx,50*dy,dx,dy];
   } else if (node.type === 'pipe') {
-    const length=Number.isFinite(node.length)?clamp(Math.round(node.length),60,1600):160;
+    const length=Number.isFinite(node.length)?clamp(node.length,60,1600):160;
     local=port === 'in'?[-length/2,0,-1,0]:[length/2,0,1,0];
   } else if (node.type === 'cap') local=[-28,0,-1,0];
   else if (node.type === 'ground') local=node.variant === 'sink'?[-16,0,-1,0]:[16,0,1,0];
   else if (node.type === 'outlet') local=[-33,0,-1,0];
+  else if (node.type === 'valve') local=port === 'in'?[-29,0,-1,0]:[29,0,1,0];
   else if (node.type === 'elbow') local=port === 'in'?[0,-32,0,-1]:[32,0,1,0];
   else if (node.type === 'junction' || node.type === 'cross') {
     local=port === 'in'?[-26,0,-1,0]:port === 'out'?[26,0,1,0]:port === 'top'?[0,-26,0,-1]:[0,26,0,1];

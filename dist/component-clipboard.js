@@ -1,8 +1,10 @@
+import {normalizeTankPortModes} from './source-settings.js?v=source-1';
+
 /* Component copies carry equipment settings, never existing graph connections. */
 const clipboardTypes = new Set(['text','point','pipe','cap','flowmeter','tank','ground',
   'valve','elbow','filter','junction','cross','outlet']);
 const clipboardId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
-const clipboardStrings = ['name','code','note','variant','kind','text','textColor','textAlign','fuel','station'];
+const clipboardStrings = ['name','code','note','variant','kind','text','textColor','textAlign','fuel','station','flowMode'];
 const clipboardBooleans = ['review','open','bold','enabled'];
 const clipboardNumbers = ['rotation','scale','inAngle','outAngle','length','layer','fontSize','capacity'];
 const clipboardCoordinate = value => Number.isFinite(value) && Math.abs(value) <= 40000;
@@ -55,6 +57,12 @@ export function copyComponent(node) {
     if (node[field] === undefined) continue;
     if (!Number.isFinite(node[field])) throw new Error('元件幾何資料無效，無法複製');
     result[field] = node[field];
+  }
+  if (node.type === 'tank' && node.portModes !== undefined) {
+    if (!node.portModes || typeof node.portModes !== 'object' || Array.isArray(node.portModes)) {
+      throw new Error('油槽接管口用途資料無效，無法複製');
+    }
+    result.portModes = normalizeTankPortModes(node);
   }
   return result;
 }

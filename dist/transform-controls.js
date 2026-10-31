@@ -1,4 +1,4 @@
-import {nodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js';
+import {nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js?v=tank3000-flange-1';
 
 /* Editing handles live above the drawing, separate from the oil connection ports. */
 const transformNamespace='http://www.w3.org/2000/svg';
@@ -86,7 +86,7 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
       const rotate=handle('rotate',node,rotationX,rotationY,'拖曳旋轉元件；Shift 每次 15°；方向鍵微調','circle','transform-rotate');
       rotate.append(element('text',{'class':'transform-caption',x:12*u,y:4*u,'font-size':10*u},session?.action==='rotate'?`${Math.round(normalizeAngle(node.rotation))}°`:'旋轉'));
       for(const [corner,x,y] of [['nw',left,top],['ne',right,top],['sw',left,bottom],['se',right,bottom]]){
-        const control=handle('resize',node,x,y,'拖曳等比例縮放元件（25%～400%）；方向鍵微調','square','transform-resize transform-resize-'+corner);
+        const control=handle('resize',node,x,y,`拖曳等比例縮放元件（25%～${maxNodeScale(node)*100}%）；方向鍵微調`,'square','transform-resize transform-resize-'+corner);
         if(corner==='se'&&session?.action==='resize')control.append(element('text',{'class':'transform-caption',x:10*u,y:15*u,'font-size':10*u},`${Math.round(nodeScale(node)*100)}%`));
       }
       if(node.type==='tank'){
@@ -96,12 +96,12 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
         // would otherwise turn a resize gesture into a nozzle adjustment.
         const mainRadius=Math.max(...[[left,top],[right,top],[left,bottom],[right,bottom],[rotationX,rotationY]]
           .map(([x,y])=>Math.hypot(x-node.x,y-node.y)));
-        for(const [port,caption,offset] of [['in','進',26],['out','出',56]]){
+        for(const [port,caption,offset] of [['in','A',26],['out','B',56]]){
           const angle=(angles[port+'Angle']+normalizeAngle(node.rotation))*Math.PI/180;
           const dx=Math.cos(angle),dy=Math.sin(angle),radius=50*nodeScale(node),r=Math.max(radius,mainRadius)+offset*u;
           const x=node.x+dx*r,y=node.y+dy*r;
           layer.append(element('path',{'class':'transform-leader transform-nozzle-leader',d:`M${node.x+dx*radius} ${node.y+dy*radius}L${x} ${y}`,'vector-effect':'non-scaling-stroke'}));
-          const control=handle('tank-'+port,node,x,y,`拖曳調整油槽${port==='in'?'進口':'出口'}方位；Shift 每次 15°`,'diamond','transform-nozzle transform-nozzle-'+port);
+          const control=handle('tank-'+port,node,x,y,`拖曳調整油槽${port==='in'?'接管口 A':'接管口 B'}方位；Shift 每次 15°`,'diamond','transform-nozzle transform-nozzle-'+port);
           control.append(element('text',{'class':'transform-caption',x:dx>=0?10*u:-10*u,y:4*u,'text-anchor':dx>=0?'start':'end','font-size':11*u},caption));
         }
       }
@@ -129,7 +129,7 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
     let field,value;
     const angle=Math.atan2(position.y-node.y,position.x-node.x);
     if(session.action==='resize'){
-      field='scale';value=transformRound(transformClamp(session.scale*Math.hypot(position.x-node.x,position.y-node.y)/session.startRadius,.25,4));
+      field='scale';value=transformRound(transformClamp(session.scale*Math.hypot(position.x-node.x,position.y-node.y)/session.startRadius,.25,maxNodeScale(node)));
     }else if(session.action==='rotate'){
       field='rotation';value=normalizeAngle(session.rotation+(angle-session.startAngle)*180/Math.PI);
       value=normalizeAngle(event.shiftKey?Math.round(value/15)*15:Math.round(value));
@@ -159,7 +159,7 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
     stop(event);const direction=event.key==='ArrowRight'||event.key==='ArrowUp'?1:-1;
     const action=control.dataset.transformAction,field=action==='resize'?'scale':action==='rotate'?'rotation':action==='tank-in'?'inAngle':'outAngle';
     const oldValue=field==='scale'?nodeScale(node):field==='rotation'?normalizeAngle(node.rotation):normalizeTankPorts(node)[field];
-    const value=field==='scale'?transformRound(transformClamp(oldValue+direction*.05,.25,4)):normalizeAngle(oldValue+direction*(event.shiftKey?15:1));
+    const value=field==='scale'?transformRound(transformClamp(oldValue+direction*.05,.25,maxNodeScale(node))):normalizeAngle(oldValue+direction*(event.shiftKey?15:1));
     if(oldValue===value)return;
     const token=onBegin(node);node[field]=value;onUpdate(node);onCommit(node,token);render();
     [...layer.querySelectorAll('[data-transform-action]')].find(el=>el.dataset.transformAction===action)?.focus();

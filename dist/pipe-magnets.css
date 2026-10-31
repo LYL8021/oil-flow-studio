@@ -1,0 +1,3 @@
+#pipeMagnetLayer { pointer-events:none; }
+.pipe-magnet-ring { fill:var(--orange-light); fill-opacity:.45; stroke:var(--orange); stroke-width:2; }
+.node .port.magnet-target { stroke:var(--orange) !important; stroke-width:3; fill:var(--orange-light); opacity:1; }

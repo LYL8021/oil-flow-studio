@@ -1,0 +1,6 @@
+.source-select { padding:0; text-align:left; background:none; cursor:pointer; }
+.source-select:hover { color:var(--ink); }
+.source-mode-summary { display:block; color:var(--muted); font-size:9px; line-height:1.7; margin-top:3px; }
+.source-operation-row { display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); font-size:11px; line-height:1.7; }
+.source-operation-row span { color:var(--muted); text-align:right; }
+.tank-port-caption { font-size:14px; font-weight:600; fill:var(--diagram-label); stroke:var(--diagram-surface); stroke-width:3; paint-order:stroke fill; pointer-events:none; }

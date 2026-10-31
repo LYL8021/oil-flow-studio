@@ -17,10 +17,11 @@ function project() {
 const clone = value => structuredClone(value);
 const operation = value => captureOperation(value, {id:'op1',name:'正常輸送',createdAt:100});
 
-test('capture saves valve states, not tank settings or layout, without mutating the diagram', () => {
+test('capture saves valve and operational source states without fuel or layout changes', () => {
   const original = project(), before = clone(original);
   const captured = operation(original);
   assert.deepEqual(captured.valves,[{id:'v1',open:false},{id:'v2',open:true}]);
+  assert.deepEqual(captured.sources,[{id:'tank',type:'tank',enabled:false,portModes:{in:'inlet',out:'outlet'}}]);
   assert.equal(captured.createdAt,100);
   assert.ok(captured.updatedAt >= captured.createdAt);
   assert.equal('nodes' in captured,false);
@@ -29,8 +30,9 @@ test('capture saves valve states, not tank settings or layout, without mutating 
   assert.deepEqual(original,before);
 });
 
-test('applying restores every valve but preserves geometry, sources, reference and other presets', () => {
+test('legacy valve-only operation restores valves but preserves current source states and layout', () => {
   const target = project(), captured = operation(target);
+  delete captured.sources;
   target.nodes[1].open = true; target.nodes[2].open = false;
   target.nodes[0].enabled = true; target.nodes[0].fuel = 'fuel';
   target.nodes[1].x = 555; target.edges[0].waypoints = [{x:99,y:123}];
@@ -176,4 +178,75 @@ test('pre-annotation diagrams retain their exact topology-v1 canonical represent
     nodes:[['end','outlet',''],['tank','tank',''],['v1','valve','V-01'],['v2','valve','V-02']],
     edges:[['e1','tank','out','v1','in'],['e2','v1','out','v2','in'],['e3','v2','out','end','in']]
   }));
+});
+
+test('source presets restore independent tank roles and reversible station modes without changing products or geometry',()=>{
+ const diagram=project();
+ diagram.nodes.push({id:'station',type:'ground',variant:'sink',enabled:true,flowMode:'source',fuel:'gasoline',x:550,y:50});
+ diagram.nodes[0].enabled=true;diagram.nodes[0].portModes={in:'outlet',out:'outlet'};
+ const signature=topologySignature(diagram),normal=operation(diagram);
+ diagram.nodes[0].portModes={in:'inlet',out:'inlet'};diagram.nodes[0].enabled=false;
+ diagram.nodes.at(-1).enabled=false;diagram.nodes.at(-1).flowMode='idle';
+ diagram.nodes[1].open=true;
+ const idle=captureOperation(diagram,{id:'idle',name:'靜置'});
+ assert.equal(topologySignature(diagram),signature);
+ assert.equal(operationMatches(diagram,normal),false);
+ assert.equal(operationMatches(diagram,idle),true);
+ diagram.nodes[0].fuel='fuel';diagram.nodes.at(-1).fuel='diesel';
+ diagram.nodes[0].x=750;diagram.nodes[0].scale=30;diagram.nodes[0].outAngle=245;
+ const before=clone(diagram),restored=applyOperation(diagram,normal);
+ assert.deepEqual(restored.nodes[0].portModes,{in:'outlet',out:'outlet'});
+ assert.equal(restored.nodes[0].enabled,true);
+ assert.equal(restored.nodes.at(-1).flowMode,'source');assert.equal(restored.nodes.at(-1).enabled,true);
+ assert.equal(restored.nodes[0].fuel,'fuel');assert.equal(restored.nodes.at(-1).fuel,'diesel');
+ assert.equal(restored.nodes[0].x,750);assert.equal(restored.nodes[0].scale,30);assert.equal(restored.nodes[0].outAngle,245);
+ assert.equal(restored.nodes.at(-1).variant,'sink');
+ assert.equal(operationMatches(restored,normal),true);
+ assert.equal(operationMatches(applyOperation(restored,idle),idle),true);
+ assert.deepEqual(diagram,before);
+});
+
+test('source matching notices mode and supply changes while tolerating normalized legacy defaults',()=>{
+ const diagram=project(),captured=operation(diagram);
+ assert.equal(operationMatches(diagram,captured),true);
+ diagram.nodes[0].portModes={in:'inlet',out:'outlet'};
+ assert.equal(operationMatches(diagram,captured),true);
+ diagram.nodes[0].portModes.in='outlet';assert.equal(operationMatches(diagram,captured),false);
+ diagram.nodes[0].portModes.in='inlet';diagram.nodes[0].enabled=true;
+ assert.equal(operationMatches(diagram,captured),false);
+});
+
+test('source presets validate modes and identities atomically and normalize to detached safe values',()=>{
+ const diagram=project(),captured=operation(diagram),before=clone(diagram);
+ const source=captured.sources[0];
+ for(const sources of [null,[{...source,enabled:'false'}],[source,source],
+  [{...source,portModes:{in:'source',out:'outlet'}}],
+  [{...source,type:'valve'}],
+  [{id:'station',type:'ground',enabled:true,flowMode:'idle'}],
+  [{id:'station',type:'ground',enabled:false,flowMode:'unknown'}]]){
+  assert.throws(()=>applyOperation(diagram,{...captured,sources}),{code:'invalid-operation'});
+  assert.deepEqual(diagram,before);
+ }
+ for(const setting of [{...source,id:'missing'},{id:'v1',type:'ground',enabled:false,flowMode:'idle'}]){
+  assert.throws(()=>applyOperation(diagram,{...captured,sources:[setting]}),{code:'incompatible'});
+  assert.deepEqual(diagram,before);
+ }
+ const normalized=normalizeOperations([captured]);normalized[0].sources[0].portModes.in='closed';
+ assert.equal(captured.sources[0].portModes.in,'inlet');
+ const partial=clone(captured);partial.sources=[];
+ diagram.nodes[0].enabled=true;diagram.nodes[0].portModes={in:'closed',out:'closed'};
+ const restored=applyOperation(diagram,partial);
+ assert.equal(restored.nodes[0].enabled,true);assert.deepEqual(restored.nodes[0].portModes,{in:'closed',out:'closed'});
+});
+
+test('legacy presets with no source field leave explicit new ground and tank settings untouched',()=>{
+ const diagram=project(),legacy=operation(diagram);delete legacy.sources;
+ diagram.nodes[0].enabled=true;diagram.nodes[0].portModes={in:'outlet',out:'closed'};
+ diagram.nodes.push({id:'station',type:'ground',enabled:false,flowMode:'idle'});
+ // Existing older presets are still subject to topology compatibility.
+ legacy.signature=topologySignature(diagram);
+ const next=applyOperation(diagram,legacy);
+ assert.deepEqual(next.nodes[0],diagram.nodes[0]);assert.deepEqual(next.nodes.at(-1),diagram.nodes.at(-1));
+ assert.equal(operationMatches(diagram,legacy),true);
+ assert.equal('sources' in normalizeOperations([legacy])[0],false);
 });
