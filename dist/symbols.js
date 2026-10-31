@@ -11,11 +11,11 @@ export function referenceSymbol(type, { fill, active = true, open = true, varian
   if (type === 'ground') {
     const sinking = variant === 'sink';
     // Plan-view buried continuation: a pipe ending in the drawing's curved break mark.
-    // The mirrored marks retain the existing single connection at x = -36 / +36.
-    const pipe = sinking ? 'M-36 0H14' : 'M36 0H-14';
+    // The short stem and its single connection use the same +/-16 geometry.
+    const pipe = sinking ? 'M-16 0H8' : 'M16 0H-8';
     const continuation = sinking
-      ? 'M14-13Q25-7 14 0Q3 7 14 13'
-      : 'M-14-13Q-25-7-14 0Q-3 7-14 13';
+      ? 'M8-10Q16-5 8 0Q0 5 8 10'
+      : 'M-8-10Q-16-5-8 0Q0 5-8 10';
     return `<g class="reference-ground ground-${sinking ? 'sink' : 'rise'}"><path class="ground-stem" d="${pipe}" fill="none" stroke-width="4"/><path class="ground-continuation" d="${continuation}" fill="none" stroke-width="2.2"/></g>`;
   }
 

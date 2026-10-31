@@ -29,7 +29,7 @@ test('every component connection scales and rotates with its symbol; direction s
   assert.equal(changed.x,10-y*2,type);assert.equal(changed.y,20+x*2,type);
   assert.ok(Math.abs(Math.hypot(changed.dx,changed.dy)-1)<1e-12,type);
  }
- assert.deepEqual(componentPort({type:'ground',variant:'sink',x:10,y:20,scale:.5,rotation:90},'port'),{x:10,y:2,dx:0,dy:-1});
+ assert.deepEqual(componentPort({type:'ground',variant:'sink',x:10,y:20,scale:.5,rotation:90},'port'),{x:10,y:12,dx:0,dy:-1});
  assert.deepEqual(componentPort({type:'valve',variant:'riser',x:10,y:20,scale:4,rotation:90},'in'),{x:10,y:20,dx:0,dy:-1});
  assert.deepEqual(componentPort({type:'point',x:10,y:20,scale:4},'joint'),{x:10,y:20,dx:0,dy:0});
 });

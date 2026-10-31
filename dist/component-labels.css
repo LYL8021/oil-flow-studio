@@ -1,0 +1,11 @@
+/* Keep equipment identifiers readable in either theme and over nearby pipework. */
+.node .node-identifier {
+  font-size:16px;
+  font-weight:600;
+  fill:var(--diagram-label);
+  stroke:var(--diagram-surface);
+  stroke-width:3px;
+  stroke-linejoin:round;
+  paint-order:stroke fill;
+  pointer-events:none;
+}
