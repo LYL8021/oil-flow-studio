@@ -37,7 +37,7 @@ export function componentPort(node, port) {
     const length=Number.isFinite(node.length)?clamp(Math.round(node.length),60,1600):160;
     local=port === 'in'?[-length/2,0,-1,0]:[length/2,0,1,0];
   } else if (node.type === 'cap') local=[-28,0,-1,0];
-  else if (node.type === 'ground') local=node.variant === 'sink'?[-36,0,-1,0]:[36,0,1,0];
+  else if (node.type === 'ground') local=node.variant === 'sink'?[-16,0,-1,0]:[16,0,1,0];
   else if (node.type === 'outlet') local=[-33,0,-1,0];
   else if (node.type === 'elbow') local=port === 'in'?[0,-32,0,-1]:[32,0,1,0];
   else if (node.type === 'junction' || node.type === 'cross') {

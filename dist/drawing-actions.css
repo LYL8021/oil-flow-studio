@@ -1,0 +1,18 @@
+/* Fresh drawings and background choices share the existing editor palette. */
+.editor-mode-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; flex-shrink:0; }
+#newDrawingBtn, #projectLibraryNewBtn { white-space:nowrap; }
+.project-library-new { display:flex; justify-content:flex-end; margin:0 0 16px; }
+#referenceApplyOptions { margin:18px 0; padding:0; border:0; min-width:0; }
+#referenceApplyOptions[hidden] { display:none; }
+#referenceApplyOptions legend { margin-bottom:10px; padding:0; font-size:12px; color:var(--ink); font-weight:500; }
+.reference-apply-option { display:flex; align-items:flex-start; gap:10px; padding:12px 13px; margin:8px 0; border:1px solid var(--line); border-radius:7px; background:var(--bg); cursor:pointer; text-align:left; }
+.reference-apply-option:has(input:checked) { border-color:var(--orange); background:var(--orange-light); }
+.reference-apply-option input { flex-shrink:0; width:15px; height:15px; margin:2px 0 0; accent-color:var(--orange); }
+.reference-apply-option strong { display:block; margin-bottom:4px; color:var(--ink); font-size:12px; font-weight:500; }
+.reference-apply-option small { display:block; color:var(--muted); font-size:11px; line-height:1.7; }
+.reference-apply-note { margin:10px 0 0; color:var(--muted); font-size:11px; line-height:1.8; }
+@media(max-width:560px) {
+ .editor-mode-actions { width:100%; justify-content:flex-end; }
+ .editor-mode-actions .button { min-height:34px; padding:7px 10px; font-size:11px; }
+ .editor-mode-actions #returnToOperationsBtn { width:auto; flex:1; }
+}

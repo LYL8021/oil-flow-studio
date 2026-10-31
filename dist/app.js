@@ -4,12 +4,15 @@ import {commitPipeRun} from './pipe-runs.js?v=tank-ports-1';
 import {pipePath} from './pipes.js?v=bridge-3';
 import {normalizePipeLayer,pipeDrawOrder,reorderPipes} from './pipe-order.js?v=layer-1';
 import {normalizeTextMark,textMarkMarkup,textMarkBounds} from './text-marks.js?v=text-1';
-import {referenceSymbol} from './symbols.js?v=tank-ports-1';
+import {referenceSymbol} from './symbols.js?v=ground-short-1';
 import {normalizeReference,transformReference} from './reference-layout.js?v=1000-1';
 import {readImage,analyzePreparedImage} from './image-draft.js?v=pdf-1';
 import {isPdfFile} from './pdf-import.js?v=pdf-1';
-import {componentPort,nodeScale,normalizeTankPorts,normalizeAngle} from './component-geometry.js?v=geometry-1';
+import {componentPort,nodeScale,normalizeTankPorts,normalizeAngle} from './component-geometry.js?v=ground-short-1';
 import {setupTransformControls} from './transform-controls.js?v=transform-1';
+import {identifierLayout} from './component-labels.js?v=labels-1';
+import {copyComponent,pasteComponent,copyPipeSegment,pastePipeSegment} from './component-clipboard.js?v=clipboard-1';
+import {createBlankDrawing,applyReference} from './drawing-actions.js?v=drawing-1';
 import {setupProjectLibrary} from './project-library.js?v=text-1';
 import {normalizeOperations} from './operations.js?v=text-1';
 import {setupOperationPanel} from './operation-panel.js?v=text-1';
@@ -76,7 +79,7 @@ const pipeKinds={normal:'一般油管',bridge:'跨管',underground:'地下管'};
 const pipeKindOptions=value=>Object.entries(pipeKinds).map(([key,name])=>`<option value="${key}" ${value===key?'selected':''}>${name}</option>`).join('');
 const STORAGE='oil-flow-studio-v1';
 let state={nodes:[],edges:[]},history=[],future=[],selected=null,mode='sim',tool='select',canvasPointer=null,newPipeKind='normal',newRouting='orthogonal',grid=true,pendingPort=null,draftWaypoints=[],draftPointer=null,selectedWaypoint=null,view={x:0,y:0,w:1200,h:720},drag=null,toastTimer,saveTimer,storageAvailable=true;
-let projectLibrary=null,operationPanel=null,transformControls=null;
+let projectLibrary=null,operationPanel=null,transformControls=null,componentClipboard=null,pasteSequence=0;
 let flow={activeEdges:new Set(),activeNodes:new Set(),activePorts:new Set(),activeEdgeFuels:new Map(),activeNodeFuels:new Map(),activePortFuels:new Map(),edgeDirections:new Map(),nodeDirections:new Map()};
 const clone=v=>JSON.parse(JSON.stringify(v));
 function sample(){
@@ -237,7 +240,7 @@ function renderGraph(){
   const active=flow.activeNodes.has(n.id),pending=pendingPort?.node===n.id;
   return `<g class="node pipe-point ${fluidClass(flow.activeNodeFuels.get(n.id))} ${active?'active':''} ${selected?.kind==='node'&&selected.id===n.id?'selected':''}" data-node="${n.id}" transform="translate(${n.x} ${n.y})" tabindex="0" role="button" aria-label="管線接點"><circle class="joint-hit" r="11" fill="transparent"/><circle class="joint-dot" r="4"/><circle class="port ${pending?'pending':''}" data-port="joint" data-owner="${n.id}" r="4.5" tabindex="${mode==='edit'?0:-1}" role="button" aria-label="管線接管點"/></g>`;
  }
- const closedValve=n.type==='valve'&&n.open===false,active=flow.activeNodes.has(n.id)&&!closedValve,isSelected=selected?.kind==='node'&&selected.id===n.id,labelX=n.type==='cross'?42:0,labelAnchor=n.type==='cross'?'start':'middle',labelY=n.type==='tank'?88*nodeScale(n):n.type==='valve'?(n.variant==='riser'?87:77)*nodeScale(n):n.type==='pipe'?Math.max(65,Math.abs(portInfo(n,'out').y-n.y)+35):65*nodeScale(n);
+ const closedValve=n.type==='valve'&&n.open===false,active=flow.activeNodes.has(n.id)&&!closedValve,isSelected=selected?.kind==='node'&&selected.id===n.id,identifier=identifierLayout(n,{operationMode:mode==='sim'}),labelX=identifier.x,labelAnchor=identifier.anchor,labelY=identifier.y;
  const pipePoints=n.type==='pipe'?nodePipes.get(n.id).map(p=>({x:p.x-n.x,y:p.y-n.y})):[];
  const crossingPaths=n.type==='pipe'&&n.kind==='bridge'?lowerPaths.map(points=>points.map(p=>({x:p.x-n.x,y:p.y-n.y}))):[];
  const pipeD=n.type==='pipe'?pipePath(pipePoints,crossingPaths):'';
@@ -250,9 +253,9 @@ function renderGraph(){
   return `<circle class="port ${fluidClass(fuels)} ${activePort?'active':''} ${isPending?'pending':''}" data-port="${p}" data-owner="${n.id}" cx="${pos.x-n.x}" cy="${pos.y-n.y}" r="4.5" tabindex="${mode==='edit'?0:-1}" role="button" aria-label="${esc(n.name)} ${central?'立管閥中心':p==='in'?'入口':p==='branch'?'支路':p==='top'?'上方分支':'出口'}接點"/>`;
  }).join('');
  const hasCapacity=n.type==='tank'&&Number.isFinite(n.capacity);
- const tankInfo=n.type==='tank'?`<g transform="scale(${nodeScale(n)})" class="tank-info" fill="var(--diagram-label)" stroke="none" text-anchor="middle"><text x="0" y="${hasCapacity?-14:-5}" font-size="13" font-weight="600">${esc(n.code)}</text>${hasCapacity?`<text x="0" y="2" font-size="9">${n.capacity} 公秉</text>`:''}<text x="0" y="${hasCapacity?19:14}" font-size="10">${fuelName(n.fuel)}</text></g>`:'';
+ const tankInfo=n.type==='tank'?`<g transform="scale(${nodeScale(n)})" class="tank-info" fill="var(--diagram-label)" stroke="none" text-anchor="middle"><text x="0" y="${hasCapacity?-14:-5}" font-size="16" font-weight="600">${esc(n.code)}</text>${hasCapacity?`<text x="0" y="2" font-size="10">${n.capacity} 公秉</text>`:''}<text x="0" y="${hasCapacity?19:14}" font-size="11">${fuelName(n.fuel)}</text></g>`:'';
 
- const badge=n.type==='valve'&&mode==='sim'?`<g class="valve-badge ${n.open?'':'closed'}" data-toggle="${n.id}" transform="translate(-27 ${n.variant==='riser'?43:33})" role="button" tabindex="0" aria-label="${esc(n.name)}，${n.open?'開啟，點擊關閉':'關閉，點擊開啟'}"><rect width="54" height="22" rx="11"/><circle cx="12" cy="11" r="2.5" fill="${n.open?'#ed9a62':'#ce8a81'}"/><text x="31" y="14" text-anchor="middle">${n.open?'開啟':'關閉'}</text></g>`:'';
+ const badge=n.type==='valve'&&mode==='sim'?`<g class="valve-badge ${n.open?'':'closed'}" data-toggle="${n.id}" transform="translate(-27 ${identifier.badgeY})" role="button" tabindex="0" aria-label="${esc(n.name)}，${n.open?'開啟，點擊關閉':'關閉，點擊開啟'}"><rect width="54" height="22" rx="11"/><circle cx="12" cy="11" r="2.5" fill="${n.open?'#ed9a62':'#ce8a81'}"/><text x="31" y="14" text-anchor="middle">${n.open?'開啟':'關閉'}</text></g>`:'';
  return `<g class="node ${closedValve?'closed-valve':''} ${n.review?'needs-review':''} ${fluidClass(flow.activeNodeFuels.get(n.id))} ${active?'active':''} ${isSelected?'selected':''}" data-node="${n.id}" transform="translate(${n.x} ${n.y})" tabindex="0" role="button" aria-label="${esc(n.name)} ${types[n.type].name}"><rect class="selection-box" x="${minX}" y="${minY}" width="${maxX-minX}" height="${labelY+30-minY}" rx="8"/><g class="node-symbol" transform="rotate(${n.type==='pipe'?0:n.rotation||0}) scale(${n.type==='pipe'?1:nodeScale(n)})">${graphic}${n.type==='tank'?tankNozzles(n):''}</g>${tankInfo}${ports}${badge}${n.review?`<text class="review-marker" x="46" y="-28" text-anchor="middle"><title>${esc(n.note||'圖片辨識候選，請確認元件位置與種類')}</title>?</text>`:''}<text class="node-code node-identifier" x="${labelX}" y="${labelY}" text-anchor="${labelAnchor}">${n.type==='tank'?'':esc(n.code)}</text></g>`;
  };
  const lowerPaths=[];
@@ -333,7 +336,7 @@ function fit(){
 function point(event){const p=new DOMPoint(event.clientX,event.clientY);return p.matrixTransform($('canvas').getScreenCTM().inverse());}
 function zoom(factor,center){const p=center||{x:view.x+view.w/2,y:view.y+view.h/2};const next=Math.max(250,Math.min(Math.max(40000,view.w),view.w*factor)),k=next/view.w;view.x=p.x-(p.x-view.x)*k;view.y=p.y-(p.y-view.y)*k;view.w=next;applyView();}
 function snap(v){return grid?Math.round(v/20)*20:Math.round(v);}
-function addNode(type,p,variant){if(mode==='sim'){notify('請切換到編輯模式新增元件');return;}if(!types[type])return;if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||Math.abs(snap(p.x))>40000||Math.abs(snap(p.y))>40000){notify('這個位置超出繪圖範圍，請將底圖移回中央後再加入元件');return;}const t=type==='ground'?{...types.ground,name:variant==='sink'?'入土端':'出土端'}:variant==='riser'&&type==='valve'?{...types[type],name:'立管閥'}:types[type],index=Math.max(0,...state.nodes.filter(n=>n.type===type).map(n=>Number(n.code?.split('-').pop())||0))+1;const n={id:'n'+crypto.randomUUID(),type,x:snap(p.x),y:snap(p.y),name:t.name,code:t.code+'-'+String(index).padStart(2,'0'),rotation:0,...(['valve','filter','ground'].includes(type)?{variant:normalizeVariant(type,variant)}:{}),...(type==='pipe'?{length:160,kind:newPipeKind}:{}),...(type==='valve'?{open:true}:{}),...(type==='tank'?{enabled:true,fuel:'fuel',inAngle:180,outAngle:0}:{}),...(type==='ground'?{enabled:variant!=='sink',fuel:'fuel',station:''}:{}),...(type==='text'?{name:'',code:'',...normalizeTextMark({text:'文字標記'})}:{})};change(()=>{state.nodes.push(n);selected={kind:'node',id:n.id};});notify(`已新增${t.name}`);}
+function addNode(type,p,variant,centered=false){if(mode==='sim'){notify('請切換到編輯模式新增元件');return;}if(!types[type])return;if(state.nodes.length>=400){notify('圖面最多支援 400 個元件');return;}if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||Math.abs(centered?p.x:snap(p.x))>40000||Math.abs(centered?p.y:snap(p.y))>40000){notify('這個位置超出繪圖範圍，請將底圖移回中央後再加入元件');return;}const t=type==='ground'?{...types.ground,name:variant==='sink'?'入土端':'出土端'}:variant==='riser'&&type==='valve'?{...types[type],name:'立管閥'}:types[type],index=Math.max(0,...state.nodes.filter(n=>n.type===type).map(n=>Number(n.code?.split('-').pop())||0))+1;const n={id:'n'+crypto.randomUUID(),type,x:centered?p.x:snap(p.x),y:centered?p.y:snap(p.y),name:t.name,code:t.code+'-'+String(index).padStart(2,'0'),rotation:0,...(['valve','filter','ground'].includes(type)?{variant:normalizeVariant(type,variant)}:{}),...(type==='pipe'?{length:160,kind:newPipeKind}:{}),...(type==='valve'?{open:true}:{}),...(type==='tank'?{enabled:true,fuel:'fuel',inAngle:180,outAngle:0}:{}),...(type==='ground'?{enabled:variant!=='sink',fuel:'fuel',station:''}:{}),...(type==='text'?{name:'',code:'',...normalizeTextMark({text:'文字標記'})}:{})};change(()=>{state.nodes.push(n);selected={kind:'node',id:n.id};});notify(`已新增${t.name}`);}
 function connectPort(owner,port){
  if(mode==='sim')return;
  const node=nodeById(owner);if(!node)return;
@@ -411,7 +414,7 @@ svg.addEventListener('dblclick',ev=>{if(mode==='sim'||pendingPort||tool==='hand'
 svg.addEventListener('contextmenu',ev=>{if(mode==='edit'&&pendingPort){ev.preventDefault();finishPipe();}});
 svg.addEventListener('wheel',ev=>{ev.preventDefault();zoom(ev.deltaY>0?1.09:1/1.09,point(ev));},{passive:false});
 svg.addEventListener('keydown',ev=>{if(ev.key!=='Enter'&&ev.key!==' ')return;if(pendingPort&&!ev.target.closest('[data-port]')){ev.preventDefault();return;}const handle=ev.target.closest('[data-waypoint]');if(handle&&mode==='edit'){ev.preventDefault();selected={kind:'edge',id:handle.dataset.waypointOwner};selectedWaypoint={edge:handle.dataset.waypointOwner,index:Number(handle.dataset.waypoint)};render();return;}const port=ev.target.closest('[data-port]'),toggle=ev.target.closest('[data-toggle]'),node=ev.target.closest('[data-node]'),edge=ev.target.closest('[data-edge]');ev.preventDefault();if(port)connectPort(port.dataset.owner,port.dataset.port);else if(toggle)toggleValve(toggle.dataset.toggle);else if(node){selectedWaypoint=null;selected={kind:'node',id:node.dataset.node};if(mode==='sim')toggleValve(node.dataset.node);else render();}else if(edge){selectedWaypoint=null;selected={kind:'edge',id:edge.dataset.edge};render();}});
-document.querySelectorAll('[data-component]').forEach(el=>{el.addEventListener('dragstart',ev=>{ev.dataTransfer.setData('application/oil-component',el.dataset.component);ev.dataTransfer.setData('application/oil-variant',el.dataset.variant||'');ev.dataTransfer.effectAllowed='copy';});el.onclick=()=>{const base={x:view.x+view.w*.45,y:view.y+view.h*.43};const count=state.nodes.filter(n=>Math.abs(n.x-base.x)<100&&Math.abs(n.y-base.y)<100).length;addNode(el.dataset.component,{x:base.x+count*60,y:base.y+count*50},el.dataset.variant);};});
+document.querySelectorAll('[data-component]').forEach(el=>{el.addEventListener('dragstart',ev=>{ev.dataTransfer.setData('application/oil-component',el.dataset.component);ev.dataTransfer.setData('application/oil-variant',el.dataset.variant||'');ev.dataTransfer.effectAllowed='copy';});el.onclick=()=>{addNode(el.dataset.component,{x:view.x+view.w/2,y:view.y+view.h/2},el.dataset.variant,true);};});
 $('canvasWrap').addEventListener('dragover',ev=>{ev.preventDefault();ev.dataTransfer.dropEffect='copy';});$('canvasWrap').addEventListener('drop',ev=>{ev.preventDefault();addNode(ev.dataTransfer.getData('application/oil-component'),point(ev),ev.dataTransfer.getData('application/oil-variant'));});
 for(const t of ['select','pipe','hand'])$(t+'Tool').onclick=()=>{if(mode==='sim'&&t==='pipe'){notify('請切換到編輯模式連接油管');return;}setTool(t);};
 $('freeRouteBtn').onclick=()=>{if(mode==='sim')return;newRouting=newRouting==='free'?'orthogonal':'free';draftPointer=null;applyRoutingMode();updateDraft();notify(newRouting==='free'?'自由斜走：接管途中點畫布加入轉折':'已切換為直角接管');};
@@ -424,16 +427,35 @@ $('undoBtn').onclick=undo;$('redoBtn').onclick=redo;
 $('gridBtn').onclick=()=>{grid=!grid;$('gridBtn').classList.toggle('active',grid);$('gridBackground').setAttribute('fill',grid?'url(#dots)':'var(--diagram-surface)');notify(grid?'格點吸附已開啟':'格點吸附已關閉');};
 $('zoomIn').onclick=()=>zoom(1/1.2);$('zoomOut').onclick=()=>zoom(1.2);$('fitBtn').onclick=fit;
 $('allOpenBtn').onclick=()=>{change(()=>state.nodes.filter(n=>n.type==='valve').forEach(n=>n.open=true));notify('所有閥門已開啟');};$('allCloseBtn').onclick=()=>{change(()=>state.nodes.filter(n=>n.type==='valve').forEach(n=>n.open=false));notify('所有閥門已關閉');};
-function confirmReplace(title,fn,description){$('confirmTitle').textContent=title;$('confirmDialog').querySelector('p').textContent=description||'目前設計會被取代，建議先匯出專案保留備份。';$('confirmDialog').showModal();$('confirmOk').onclick=()=>{$('confirmDialog').close();fn();};}
+function confirmReplace(title,fn,description,{referenceChoice=false}={}){$('confirmTitle').textContent=title;$('confirmDialog').querySelector('p').textContent=description||'目前設計會被取代，建議先匯出專案保留備份。';$('referenceApplyOptions').hidden=!referenceChoice;$('keepCurrentComponents').checked=true;$('confirmDialog').showModal();$('confirmOk').onclick=()=>{const keep=$('keepCurrentComponents').checked;$('confirmDialog').close();fn(keep);};}
 function loadExample(){confirmReplace('載入範例油路？',()=>{projectLibrary?.detach();change(()=>{state=sample();selected=null;pendingPort=null;});setMode('edit');fit();notify('已載入範例，試試關閉主供油閥');});}
 $('exampleBtn').onclick=loadExample;$('emptyExample').onclick=loadExample;
-$('clearBtn').onclick=()=>confirmReplace('開始新的空白油路？',()=>{projectLibrary?.detach();change(()=>{state={nodes:[],edges:[]};selected=null;pendingPort=null;});setMode('edit');fit();notify('從左側加入油槽，開始你的設計');});
+function startNewDrawing(){transformControls?.cancel();$('projectLibraryDialog').close();projectLibrary?.detach();change(()=>{state=createBlankDrawing();selected=null;selectedWaypoint=null;drag=null;clearDraft();});pasteSequence=0;setMode('edit');fit();notify('已開啟空白新圖面，可按復原還原剛才的畫布');}
+$('clearBtn').onclick=startNewDrawing;$('newDrawingBtn').onclick=startNewDrawing;$('projectLibraryNewBtn').onclick=startNewDrawing;
 $('confirmCancel').onclick=()=>$('confirmDialog').close();
 for(const id of ['helpBtn','tutorialBtn'])$(id).onclick=()=>$('helpDialog').showModal();for(const id of ['closeHelp','startBtn'])$(id).onclick=()=>$('helpDialog').close();
 $('inspectorToggle').onclick=()=>$('inspector').classList.toggle('show');$('closeInspector').onclick=()=>$('inspector').classList.remove('show');
 document.addEventListener('keydown',ev=>{
  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='s'&&!document.querySelector('dialog[open]')){ev.preventDefault();mode==='sim'?$('saveOperationBtn').click():projectLibrary?.open({focusName:true});return;}
- if(/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)||document.querySelector('dialog[open]'))return;
+ if(/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)||ev.target.isContentEditable||document.querySelector('dialog[open]'))return;
+ if((ev.ctrlKey||ev.metaKey)&&['c','v'].includes(ev.key.toLowerCase())){
+  ev.preventDefault();if(mode!=='edit'){notify('請切換到編修圖面後複製貼上');return;}
+  try{
+   if(ev.key.toLowerCase()==='c'){
+    if(selected?.kind==='node'){componentClipboard=copyComponent(nodeById(selected.id));}
+    else if(selected?.kind==='edge'){const edge=state.edges.find(e=>e.id===selected.id);componentClipboard=copyPipeSegment(edge,edgePoints(edge));}
+    else{notify('請先選取元件或一段油管');return;}
+    pasteSequence=0;notify('已複製，按 Ctrl+V 貼到畫面中央');
+   }else{
+    if(!componentClipboard){notify('請先選取元件並按 Ctrl+C');return;}
+    transformControls?.cancel();const offset={x:pasteSequence*20,y:pasteSequence*20};
+    const options={position:{x:view.x+view.w/2,y:view.y+view.h/2},offset};
+    const pasted=componentClipboard.clipboardType==='pipe-segment'?pastePipeSegment(state,componentClipboard,options):pasteComponent(state,componentClipboard,options);
+    change(()=>{state=pasted.project;selected={kind:pasted.edgeId?'edge':'node',id:pasted.edgeId||pasted.nodeId};selectedWaypoint=null;clearDraft();tool='select';});pasteSequence++;notify('已貼上，可直接拖曳調整位置');
+   }
+  }catch(error){notify(error.message);}
+  return;
+ }
  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='z'){ev.preventDefault();ev.shiftKey?redo():undo();return;}
  if(ev.key==='Escape'){selected=null;selectedWaypoint=null;setTool('select');renderInspector();return;}
  if(ev.key==='Delete'||ev.key==='Backspace'){ev.preventDefault();if(!removeWaypoint())deleteSelected();}
@@ -448,7 +470,7 @@ $('exportSvg').onclick=()=>{
  const copy=svg.cloneNode(true);
  // Freeze the current palette so the downloaded SVG is self-contained in either theme.
  const originals=[svg,...svg.querySelectorAll('*')],copies=[copy,...copy.querySelectorAll('*')];
- const properties=['fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','stroke-dasharray','stroke-dashoffset','filter','opacity','color','font-family','font-size','font-weight','letter-spacing'];
+ const properties=['fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','stroke-dasharray','stroke-dashoffset','filter','opacity','color','font-family','font-size','font-weight','letter-spacing','paint-order'];
  originals.forEach((original,index)=>{const computed=getComputedStyle(original);for(const property of properties)copies[index].style.setProperty(property,computed.getPropertyValue(property).replace(/url\([\"']?[^)\"']*#([^\"')]+)[\"']?\)/g,'url(#$1)'));});
  copy.querySelectorAll('.port,.pipe-hit,.selection-box,.draft-pipe,.flow-dashes,.standalone-pipe-hit,.text-mark-hit,.text-mark-selection,#waypointLayer,#draftPoints,#transformLayer').forEach(el=>el.remove());
  copy.querySelectorAll('[tabindex]').forEach(el=>el.removeAttribute('tabindex'));
@@ -546,7 +568,7 @@ function displayImageDraft(draft,referenceOnly=false){
  $('imageResults').hidden=false;$('imageResultSummary').textContent=`${pendingImageDraft.nodes.length} 個元件候選 · 產生後可逐一調整與確認`;
  $('imageCandidates').innerHTML=pendingImageDraft.nodes.slice(0,60).map(n=>`<span class="candidate-chip" title="${esc(n.note||'請核對元件種類與位置')}">${esc(n.code)} · ${types[n.type].name} <small>待確認</small></span>`).join('')||'<p class="draft-note">沒有找到可辨識的元件編號，可保留底圖並從元件庫補上。</p>';
  if(pendingImageDraft.nodes.length>60)$('imageCandidates').insertAdjacentHTML('beforeend',`<span class="candidate-chip">另有 ${pendingImageDraft.nodes.length-60} 個候選</span>`);
- $('imageApplyBtn').textContent=referenceOnly?'套用底圖（保留元件）':pendingImageDraft.nodes.length?'建立元件草稿':'建立底圖草稿';setImageBusy(false);
+ $('imageApplyBtn').textContent=referenceOnly?'套用底圖':pendingImageDraft.nodes.length?'建立元件草稿':'建立底圖草稿';setImageBusy(false);
 }
 async function prepareImage(file,{page=1,rotation=0}={}){
  imageSourceFile=file;$('pdfControls').hidden=!isPdfFile(file);
@@ -572,8 +594,8 @@ $('recognizeImageBtn').onclick=async()=>{
  catch(error){if(error.name!=='AbortError')imageProgress({progress:0,message:error.message});}
  finally{if(imageJob===controller){imageJob=null;setImageBusy(false);}}
 };
-function loadDraft(draft,keepActive=false){const next=validateProject(draft);if(!keepActive)projectLibrary?.detach();change(()=>{state=next;selected=null;selectedWaypoint=null;clearDraft();});setMode('edit');fit();notify('草稿已載入，請對照底圖精修元件與連線');}
-$('imageApplyBtn').onclick=()=>{if(!pendingImageDraft)return;const draft=imageReferenceOnly?{...clone(state),reference:clone(pendingImageDraft.reference),draftInfo:state.draftInfo||pendingImageDraft.draftInfo,title:state.title||pendingImageDraft.title}:clone(pendingImageDraft);const referenceOnly=imageReferenceOnly;$('imageDialog').close();confirmReplace(referenceOnly?'在目前畫布套用底圖？':'建立圖片草稿？',()=>loadDraft(draft,referenceOnly),referenceOnly?'目前的元件與油管會保留，底圖只供對照，不參與通油運算。':undefined);};
+function loadDraft(draft,keepActive=false){const next=validateProject(draft);if(!keepActive)projectLibrary?.detach();change(()=>{state=next;selected=null;selectedWaypoint=null;clearDraft();});setMode('edit');fit();notify('圖面已套用，可對照底圖編修；按復原可還原');}
+$('imageApplyBtn').onclick=()=>{if(!pendingImageDraft)return;const draft=clone(pendingImageDraft),referenceOnly=imageReferenceOnly;$('imageDialog').close();if(referenceOnly){confirmReplace('在目前畫布套用底圖？',keep=>{const next=applyReference(state,draft.reference,{keepComponents:keep,title:draft.title,draftInfo:draft.draftInfo});loadDraft(next,keep);},'選擇是否保留目前的元件與油管；底圖只供對照，不參與通油運算。',{referenceChoice:true});}else confirmReplace('建立圖片草稿？',()=>loadDraft(draft));};
 async function offerLinkedDraft(){
  const encoded=new URLSearchParams(location.hash.slice(1)).get('draft');if(!encoded)return;
  try{if(encoded.length>200000)throw Error('草稿連結過長');let b64=encoded.replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));const text=await new Response(stream).text();if(text.length>6e6)throw Error('草稿超過範圍');const next=validateProject(JSON.parse(text));window.history.replaceState(null,'',location.pathname+location.search);confirmReplace(`載入「${next.title||'圖片草稿'}」？`,()=>loadDraft(next));}
@@ -585,4 +607,4 @@ let loaded=false,workingProjectContext=null;try{const raw=localStorage.getItem(S
 const resizeObserver=new ResizeObserver(()=>{applyView();});resizeObserver.observe($('canvasWrap'));requestAnimationFrame(fit);offerLinkedDraft();
 setupFeedback({apiBase:'https://oil-flow-feedback-8c41.sacredzebra19.chatgpt.site',notify});
 // Expose serializable diagnostics for local QA without changing project data.
-window.oilFlowDiagnostics=()=>({nodes:state.nodes.length,edges:state.edges.length,activeEdges:flow.activeEdges.size,activePorts:[...flow.activePorts],edgeFuels:Object.fromEntries([...flow.activeEdgeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),nodeTypes:Object.fromEntries(state.nodes.map(n=>[n.id,n.type])),nodeFuels:Object.fromEntries([...flow.activeNodeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),pipeKinds:Object.fromEntries(state.edges.map(e=>[e.id,e.kind||'normal'])),edgeRoutes:Object.fromEntries(state.edges.map(e=>[e.id,{routing:e.routing||'orthogonal',waypoints:(e.waypoints||[]).map(p=>({...p}))}])),edgeDirections:Object.fromEntries(flow.edgeDirections),nodeDirections:Object.fromEntries(flow.nodeDirections),nodeGeometry:Object.fromEntries(state.nodes.map(n=>[n.id,{x:n.x,y:n.y,rotation:n.rotation||0,scale:nodeScale(n),...(n.type==='tank'?normalizeTankPorts(n):{}),ports:Object.fromEntries((types[n.type].ports||[]).map(p=>[p,portInfo(n,p)]))}])),newRouting,draftWaypointCount:draftWaypoints.length,mode,tool,effectiveTool:$('canvas').dataset.tool,pendingPort:pendingPort?{...pendingPort}:null});
+window.oilFlowDiagnostics=()=>({nodes:state.nodes.length,edges:state.edges.length,activeEdges:flow.activeEdges.size,activePorts:[...flow.activePorts],edgeFuels:Object.fromEntries([...flow.activeEdgeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),nodeTypes:Object.fromEntries(state.nodes.map(n=>[n.id,n.type])),nodeFuels:Object.fromEntries([...flow.activeNodeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),pipeKinds:Object.fromEntries(state.edges.map(e=>[e.id,e.kind||'normal'])),edgeRoutes:Object.fromEntries(state.edges.map(e=>[e.id,{routing:e.routing||'orthogonal',waypoints:(e.waypoints||[]).map(p=>({...p}))}])),edgeDirections:Object.fromEntries(flow.edgeDirections),nodeDirections:Object.fromEntries(flow.nodeDirections),nodeGeometry:Object.fromEntries(state.nodes.map(n=>[n.id,{x:n.x,y:n.y,rotation:n.rotation||0,scale:nodeScale(n),...(n.type==='tank'?normalizeTankPorts(n):{}),ports:Object.fromEntries((types[n.type].ports||[]).map(p=>[p,portInfo(n,p)]))}])),selected:selected?{...selected}:null,view:{...view},newRouting,draftWaypointCount:draftWaypoints.length,mode,tool,effectiveTool:$('canvas').dataset.tool,pendingPort:pendingPort?{...pendingPort}:null});
