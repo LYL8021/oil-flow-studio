@@ -1,3 +1,4 @@
+import {handleDrawings} from './drawings-worker.js';
 /* Anonymous shared suggestions; D1 schema is installed by deployment migrations. */
 const MAX_BODY_BYTES = 16384;
 const MAX_LIST_SIZE = 200;
@@ -166,6 +167,9 @@ export default {
     const url = new URL(request.url), origin = request.headers.get('Origin');
     const allowed = allowedOrigin(origin, url.origin);
     if (!allowed) return reply({error:'此來源無法使用建議服務。'}, 403, origin, false);
+    if (url.pathname === '/api/drawings' || url.pathname.startsWith('/api/drawings/')) {
+      return handleDrawings(request, env, {origin, reply, responseHeaders, authorizedMaintenance});
+    }
     if (request.method === 'GET' && url.pathname === '/') {
       return reply({service:'油路工坊修改建議', api:'/api/feedback'}, 200, origin);
     }

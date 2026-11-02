@@ -23,11 +23,15 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,opera
       const records=await library.list();if(request!==listRequest)return;
       const target=el('fixedDiagramList');target.replaceChildren();
       if(!records.length)empty(target,'先存好常用的管線圖','切到「編修圖面」，畫好後按「儲存管線圖」。');
+      let previousScope=null;
+      if(library.cloudError?.()){const warning=document.createElement('p');warning.className='fixed-diagram-warning';warning.textContent='共用圖面暫時無法連線。可到圖面儲存區重新整理；本機圖面仍可使用。';target.append(warning);}
       for(const record of records){
+        const recordScope=record.scope==='cloud'?'cloud':'local';
+        if(recordScope!==previousScope){const heading=document.createElement('p');heading.className='fixed-diagram-scope';heading.textContent=recordScope==='cloud'?'共用圖面':'本機圖面';target.append(heading);previousScope=recordScope;}
         const node=button('',()=>run(()=>library.load(record.id)),'fixed-diagram-card');
         node.dataset.diagramId=record.id;node.setAttribute('aria-label',`選擇管線圖 ${record.name}`);
         const title=document.createElement('strong');title.textContent=record.name;
-        const meta=document.createElement('span');meta.textContent=`${record.nodeCount} 個元件 · ${record.operationCount||0} 項作業`;
+        const meta=document.createElement('span');meta.textContent=`${record.scope==='cloud'?'v'+record.revision+' · ':''}${record.nodeCount} 個元件 · ${record.operationCount||0} 項作業`;
         node.append(title,meta);target.append(node);
       }
       sync();
