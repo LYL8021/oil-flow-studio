@@ -16,9 +16,9 @@ import {createBlankDrawing,applyReference} from './drawing-actions.js?v=drawing-
 import {normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode} from './source-settings.js?v=source-1';
 import {pipeBorderDashes} from './pipe-visuals.js?v=joins-1';
 import {setupPipeEndpointDrag} from './pipe-magnets.js?v=short-nozzles-1';
-import {setupProjectLibrary} from './project-library.js?v=source-ops-1';
+import {setupProjectLibrary} from './project-library.js?v=cloud-1';
 import {normalizeOperations} from './operations.js?v=source-ops-1';
-import {setupOperationPanel} from './operation-panel.js?v=source-ops-1';
+import {setupOperationPanel} from './operation-panel.js?v=cloud-1';
 
 const $ = (id) => document.getElementById(id);
 const icons = {

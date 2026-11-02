@@ -1,4 +1,4 @@
-/* Named drawings live in this browser; colors follow the editor theme. */
+/* Named drawings can be shared in the cloud or kept in this browser. */
 .project-library-dialog {
   --library-danger: #aa5d57;
   width: min(760px, calc(100% - 36px));
@@ -99,4 +99,38 @@
   .project-library-dialog .saved-project-actions button { min-height: 34px; padding: 6px 10px; font-size: 11px; }
   .project-library-footer { flex-wrap: wrap; gap: 10px; margin-top: 17px; }
   .project-library-footer .button { margin-left: auto; }
+}
+
+/* Shared and local drawings use the same library without uploading local drafts. */
+.project-scope-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 10px; }
+.project-scope-tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; }
+.project-library-dialog .project-scope-tabs button { min-height: 36px; padding: 7px 17px; border-radius: 6px; color: var(--muted); font-size: 12px; }
+.project-library-dialog .project-scope-tabs button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px #0002; }
+.project-library-dialog .project-scope-tabs button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.project-scope-note { margin: 10px 0 17px; color: var(--muted); font-size: 11px; line-height: 1.85; overflow-wrap: anywhere; }
+.project-library-new { margin: 12px 0; }
+.project-save-row { flex-wrap: wrap; }
+.project-save-row input { flex-basis: 180px; }
+#projectSaveAsNew { font-size: 11px; }
+#projectLibraryMessage { margin-top: 12px; font-size: 11px; }
+.project-history-list { display: grid; gap: 8px; max-height: min(39dvh,360px); overflow-y: auto; }
+.project-history-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: var(--bg); }
+.project-history-row > div { min-width: 0; }
+.project-history-row strong, .project-history-row span { display: block; overflow-wrap: anywhere; }
+.project-history-row strong { font-size: 12px; line-height: 1.8; }
+.project-history-row span { margin-top: 4px; font-size: 10px; line-height: 1.8; color: var(--muted); }
+.project-library-dialog .project-history-load { flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; font-size: 11px; }
+.project-library-dialog .project-history-load:hover { color: var(--ink); background: var(--paper); }
+.project-library-dialog [hidden] { display: none !important; }
+.project-library-dialog [aria-busy="true"] button { cursor: wait; }
+.project-library-dialog button:disabled { opacity: .55; }
+.fixed-diagram-scope { margin: 12px 0 5px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.fixed-diagram-warning { margin: 7px 0; color: var(--muted); font-size: 10px; line-height: 1.8; }
+@media (max-width: 560px) {
+  .project-scope-toolbar { gap: 6px; }
+  .project-library-dialog .project-scope-tabs button { padding: 7px 12px; }
+  #projectLibraryRefresh { font-size: 10px; padding: 7px 9px; }
+  .project-save-row input { flex-basis: auto; }
+  .saved-project-actions { flex-wrap: wrap; }
+  .project-history-row { align-items: flex-start; }
 }
