@@ -8,14 +8,14 @@ import {referenceSymbol} from './symbols.js?v=flange-1';
 import {normalizeReference,transformReference} from './reference-layout.js?v=1000-1';
 import {readImage,analyzePreparedImage} from './image-draft.js?v=pdf-1';
 import {isPdfFile} from './pdf-import.js?v=pdf-1';
-import {componentPort,nodeScale,maxNodeScale,normalizeTankPorts,normalizeAngle} from './component-geometry.js?v=tank3000-flange-1';
-import {setupTransformControls} from './transform-controls.js?v=tank3000-1';
-import {identifierLayout} from './component-labels.js?v=flange-1';
+import {componentPort,TANK_PORT_RADIUS,nodeScale,maxNodeScale,normalizeTankPorts,normalizeAngle} from './component-geometry.js?v=short-nozzles-1';
+import {setupTransformControls} from './transform-controls.js?v=short-nozzles-1';
+import {identifierLayout} from './component-labels.js?v=short-nozzles-1';
 import {copyComponent,pasteComponent,copyPipeSegment,pastePipeSegment} from './component-clipboard.js?v=source-1';
 import {createBlankDrawing,applyReference} from './drawing-actions.js?v=drawing-1';
 import {normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode} from './source-settings.js?v=source-1';
 import {pipeBorderDashes} from './pipe-visuals.js?v=joins-1';
-import {setupPipeEndpointDrag} from './pipe-magnets.js?v=magnet-1';
+import {setupPipeEndpointDrag} from './pipe-magnets.js?v=short-nozzles-1';
 import {setupProjectLibrary} from './project-library.js?v=source-ops-1';
 import {normalizeOperations} from './operations.js?v=source-ops-1';
 import {setupOperationPanel} from './operation-panel.js?v=source-ops-1';
@@ -227,7 +227,7 @@ function addWaypoint(edge){
  change(()=>{edge.waypoints||=[];edge.waypoints.splice(index,0,p);selectedWaypoint={edge:edge.id,index};});
 }
 
-function tankNozzles(n){const angles=normalizeTankPorts(n);return ['in','out'].map(port=>{const a=angles[port==='in'?'inAngle':'outAngle']*Math.PI/180;return `<path class="tank-nozzle tank-nozzle-${port}" d="M${46*Math.cos(a)} ${46*Math.sin(a)}L${50*Math.cos(a)} ${50*Math.sin(a)}" fill="none"/>`;}).join('');}
+function tankNozzles(n){const angles=normalizeTankPorts(n);return ['in','out'].map(port=>{const a=angles[port==='in'?'inAngle':'outAngle']*Math.PI/180;return `<path class="tank-nozzle tank-nozzle-${port}" d="M${46*Math.cos(a)} ${46*Math.sin(a)}L${TANK_PORT_RADIUS*Math.cos(a)} ${TANK_PORT_RADIUS*Math.sin(a)}" fill="none"/>`;}).join('');}
 function endpointJoin(ep){const node=nodeById(ep?.node);if(!node)return false;if(node.type==='pipe')return true;if(node.type!=='point')return false;return state.edges.filter(e=>e.from.node===node.id||e.to.node===node.id).length>1;}
 function borderMarkup(d,points,joins){const dash=pipeBorderDashes(points,joins);return `<path class="pipe-border" d="${d}"${dash?` pathLength="1" stroke-dasharray="${dash}"`:''}/>`;}
 function joinMarkup(points,joins,kind){if(kind==='underground'||!points.length)return '';return [[joins.startJoin,points[0]],[joins.endJoin,points.at(-1)]].filter(([yes])=>yes).map(([,p])=>`<circle class="pipe-join" cx="${p.x}" cy="${p.y}" r="12"/>`).join('');}
