@@ -2,6 +2,9 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const clean = value => Math.abs(value) < 1e-10 ? 0 : value;
 
+// The former 4-unit projection is now one third as long beyond the 46-unit rim.
+export const TANK_PORT_RADIUS = 46 + 4 / 3;
+
 export function normalizeAngle(value, fallback = 0) {
   const angle = Number.isFinite(value) ? value : Number.isFinite(fallback) ? fallback : 0;
   return clean(((angle % 360) + 360) % 360);
@@ -37,7 +40,7 @@ export function componentPort(node, port) {
   if (node.type === 'point' || central) local=[0,0,port === 'in' ? -1 : port === 'out' ? 1 : 0,0];
   else if (node.type === 'tank') {
     const angles=normalizeTankPorts(node), angle=angles[port === 'in' ? 'inAngle' : 'outAngle']*Math.PI/180;
-    const dx=clean(Math.cos(angle)),dy=clean(Math.sin(angle));local=[50*dx,50*dy,dx,dy];
+    const dx=clean(Math.cos(angle)),dy=clean(Math.sin(angle));local=[TANK_PORT_RADIUS*dx,TANK_PORT_RADIUS*dy,dx,dy];
   } else if (node.type === 'pipe') {
     const length=Number.isFinite(node.length)?clamp(node.length,60,1600):160;
     local=port === 'in'?[-length/2,0,-1,0]:[length/2,0,1,0];

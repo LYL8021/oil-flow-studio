@@ -1,4 +1,4 @@
-import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=tank3000-flange-1';
+import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=short-nozzles-1';
 
 /* Explicit endpoint drags join graph ports; visual crossings never connect. */
 const magnetPorts={point:['joint'],tank:['in','out'],ground:['port'],pipe:['in','out'],cap:['in'],

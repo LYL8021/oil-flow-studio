@@ -1,4 +1,4 @@
-import {nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js?v=tank3000-flange-1';
+import {TANK_PORT_RADIUS,nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js?v=short-nozzles-1';
 
 /* Editing handles live above the drawing, separate from the oil connection ports. */
 const transformNamespace='http://www.w3.org/2000/svg';
@@ -44,7 +44,7 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
           top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))};
       }
     }catch{}
-    const radius=(node.type==='tank'?50:40)*nodeScale(node);
+    const radius=(node.type==='tank'?TANK_PORT_RADIUS:40)*nodeScale(node);
     return {left:node.x-radius,right:node.x+radius,top:node.y-radius,bottom:node.y+radius};
   }
   function handle(action,node,x,y,label,shape='square',extraClass='') {
@@ -91,15 +91,21 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
       }
       if(node.type==='tank'){
         const angles=normalizeTankPorts(node);
-        // Keep angle handles beyond every resize/rotation target. A rotated
-        // tank outlet can lie on the same ray as a corner; overlapping targets
-        // would otherwise turn a resize gesture into a nozzle adjustment.
+        // Pull the A/B guides inward to about one third of their former length,
+        // nudging only where needed to keep all drag targets separate.
         const mainRadius=Math.max(...[[left,top],[right,top],[left,bottom],[right,bottom],[rotationX,rotationY]]
           .map(([x,y])=>Math.hypot(x-node.x,y-node.y)));
+        const mainTargets=[[left,top],[right,top],[left,bottom],[right,bottom],[rotationX,rotationY]],placedNozzles=[];
         for(const [port,caption,offset] of [['in','A',26],['out','B',56]]){
           const angle=(angles[port+'Angle']+normalizeAngle(node.rotation))*Math.PI/180;
-          const dx=Math.cos(angle),dy=Math.sin(angle),radius=50*nodeScale(node),r=Math.max(radius,mainRadius)+offset*u;
-          const x=node.x+dx*r,y=node.y+dy*r;
+          const dx=Math.cos(angle),dy=Math.sin(angle),radius=TANK_PORT_RADIUS*nodeScale(node),oldRadius=Math.max(radius,mainRadius)+offset*u;
+          const preferred=radius+(oldRadius-radius)/3,minimum=radius+16*u;
+          let r=Math.max(minimum,preferred);
+          for(let step=0;step<160;step++){
+            const candidate=Math.max(minimum,preferred+(step%2===0?1:-1)*Math.ceil(step/2)*2*u);
+            if([...mainTargets,...placedNozzles].every(([x,y])=>Math.hypot(node.x+dx*candidate-x,node.y+dy*candidate-y)>=24*u)){r=candidate;break;}
+          }
+          const x=node.x+dx*r,y=node.y+dy*r;placedNozzles.push([x,y]);
           layer.append(element('path',{'class':'transform-leader transform-nozzle-leader',d:`M${node.x+dx*radius} ${node.y+dy*radius}L${x} ${y}`,'vector-effect':'non-scaling-stroke'}));
           const control=handle('tank-'+port,node,x,y,`拖曳調整油槽${port==='in'?'接管口 A':'接管口 B'}方位；Shift 每次 15°`,'diamond','transform-nozzle transform-nozzle-'+port);
           control.append(element('text',{'class':'transform-caption',x:dx>=0?10*u:-10*u,y:4*u,'text-anchor':dx>=0?'start':'end','font-size':11*u},caption));

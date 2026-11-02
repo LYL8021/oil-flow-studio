@@ -1,4 +1,4 @@
-import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=tank3000-flange-1';
+import {TANK_PORT_RADIUS,componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=short-nozzles-1';
 
 /* Identifier positions follow the visible glyph; they remain upright while it turns. */
 function symbolBounds(node) {
@@ -11,7 +11,7 @@ function symbolBounds(node) {
     flowmeter:[-36,-24,36,24], cap:[-28,-22,20,22],
     outlet:[-33,-21,21,21], elbow:[-9,-39,39,9],
     junction:[-33,-7,33,33], cross:[-33,-33,33,33],
-    tank:[-50,-46,50,46]
+    tank:[-TANK_PORT_RADIUS,-TANK_PORT_RADIUS,TANK_PORT_RADIUS,TANK_PORT_RADIUS]
   };
   return bounds[node.type] || [-32,-24,32,24];
 }

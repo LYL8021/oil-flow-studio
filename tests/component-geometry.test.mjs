@@ -2,19 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {componentPort,nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from '../dist/component-geometry.js';
 import {copyComponent,pasteComponent} from '../dist/component-clipboard.js';
+const nearPoint=(actual,expected)=>{assert.ok(Math.abs(actual.x-expected.x)<1e-8);assert.ok(Math.abs(actual.y-expected.y)<1e-8);assert.equal(actual.dx,expected.dx);assert.equal(actual.dy,expected.dy);};
 
-test('legacy tank outlet retains its position while a separate inlet becomes available',()=>{
+test('tank nozzles sit one third as far beyond the rim and retain their physical port IDs',()=>{
  const tank={type:'tank',x:100,y:200};
- assert.deepEqual(componentPort(tank,'out'),{x:150,y:200,dx:1,dy:0});
- assert.deepEqual(componentPort(tank,'in'),{x:50,y:200,dx:-1,dy:0});
+ nearPoint(componentPort(tank,'out'),{x:147.33,y:200,dx:1,dy:0});
+ nearPoint(componentPort(tank,'in'),{x:52.67,y:200,dx:-1,dy:0});
  assert.deepEqual(normalizeTankPorts(tank),{inAngle:180,outAngle:0});
 });
 
 test('tank nozzle angles remain independent and compose with symbol scale and rotation',()=>{
  const tank={type:'tank',x:100,y:200,inAngle:90,outAngle:300,scale:2,rotation:90};
  const inlet=componentPort(tank,'in'),outlet=componentPort(tank,'out');
- assert.deepEqual(inlet,{x:0,y:200,dx:-1,dy:0});
- assert.ok(Math.abs(outlet.x-186.6)<.001);assert.ok(Math.abs(outlet.y-250)<.001);
+ nearPoint(inlet,{x:5.33,y:200,dx:-1,dy:0});
+ assert.ok(Math.abs(outlet.x-181.98)<.001);assert.ok(Math.abs(outlet.y-247.33)<.001);
  assert.ok(Math.abs(Math.hypot(outlet.dx,outlet.dy)-1)<1e-12);
  assert.deepEqual(componentPort({...tank,inAngle:270},'out'),outlet);
  assert.deepEqual(normalizeTankPorts({inAngle:-90,outAngle:720}),{inAngle:270,outAngle:0});
@@ -56,8 +57,8 @@ test('tanks retain up to 3000% scale and both nozzles follow the large rotated b
  assert.equal(maxNodeScale({type:'point'}),1);
  assert.equal(nodeScale({type:'point',scale:30}),1);
  const tank={type:'tank',x:2000,y:3000,scale:30,rotation:90,inAngle:90,outAngle:0};
- assert.deepEqual(componentPort(tank,'in'),{x:500,y:3000,dx:-1,dy:0});
- assert.deepEqual(componentPort(tank,'out'),{x:2000,y:4500,dx:0,dy:1});
+ assert.deepEqual(componentPort(tank,'in'),{x:580,y:3000,dx:-1,dy:0});
+ assert.deepEqual(componentPort(tank,'out'),{x:2000,y:4420,dx:0,dy:1});
 });
 
 test('ordinary valve connections land on flange faces while other equipment retains its ports',()=>{
@@ -81,8 +82,8 @@ test('copying a 3000% tank preserves scale and nozzle geometry without creating 
  const result=pasteComponent(project,copyComponent(tank),{position:{x:2000,y:3000},idFactory:()=> 'copy'});
  const copy=result.project.nodes.find(n=>n.id==='copy');
  assert.equal(copy.scale,30);
- assert.deepEqual(componentPort(copy,'in'),{x:2000,y:4500,dx:0,dy:1});
- assert.deepEqual(componentPort(copy,'out'),{x:2000,y:1500,dx:0,dy:-1});
+ assert.deepEqual(componentPort(copy,'in'),{x:2000,y:4420,dx:0,dy:1});
+ assert.deepEqual(componentPort(copy,'out'),{x:2000,y:1580,dx:0,dy:-1});
  assert.deepEqual(result.project.edges,[]);
  assert.equal(project.nodes.length,1);
 });
