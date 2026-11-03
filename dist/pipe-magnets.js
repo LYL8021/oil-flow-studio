@@ -1,7 +1,8 @@
-import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=short-nozzles-1';
+import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=ports-3-1';
+import {tankPortIds} from './source-settings.js?v=ports-3-1';
 
 /* Explicit endpoint drags join graph ports; visual crossings never connect. */
-const magnetPorts={point:['joint'],tank:['in','out'],ground:['port'],pipe:['in','out'],cap:['in'],
+const magnetPorts={point:['joint'],tank:['in','out','out2'],ground:['port'],pipe:['in','out'],cap:['in'],
  valve:['in','out'],filter:['in','out'],flowmeter:['in','out'],elbow:['in','out'],
  junction:['in','out','branch'],cross:['in','out','branch','top'],outlet:['in'],text:[]};
 const magnetClone=value=>typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value));
@@ -17,7 +18,8 @@ function magnetProject(project){
  for(const e of project.edges){if(!e||!magnetId(e.id)||edges.has(e.id)||!magnetEndpoint(nodes,e.from)||!magnetEndpoint(nodes,e.to)||e.from.node===e.to.node)throw new Error('圖面油管接點資料無效');edges.add(e.id);}
  return nodes;
 }
-function magnetEndpoint(nodes,ep){return !!ep&&nodes.has(ep.node)&&magnetPorts[nodes.get(ep.node).type]?.includes(ep.port);}
+const magnetPortNames=node=>node?.type==='tank'?tankPortIds(node):magnetPorts[node?.type]||[];
+function magnetEndpoint(nodes,ep){return !!ep&&nodes.has(ep.node)&&magnetPortNames(nodes.get(ep.node)).includes(ep.port);}
 function magnetCount(project,ep,ignoreEdgeId){return project.edges.filter(e=>e.id!==ignoreEdgeId&&(magnetSame(e.from,ep)||magnetSame(e.to,ep))).length;}
 function magnetTarget(project,nodes,target,{ignoreEdgeId,sourceNodeId,otherNodeId}={}){
  if(!target||!nodes.has(target.node)||target.node===sourceNodeId||target.node===otherNodeId)throw new Error('請選擇另一個元件的接管點');
@@ -80,7 +82,7 @@ export function findMagneticPort(project,{position,sourceNodeId,otherNodeId,igno
  if(!position||!Number.isFinite(position.x)||!Number.isFinite(position.y)||!Number.isFinite(radius)||radius<=0||!Number.isFinite(screenScale)||screenScale<=0)return null;
  for(const node of project.nodes){
   if(node.id===sourceNodeId||node.id===otherNodeId)continue;
-  const ports=getPortNames?.(node)||((node.type==='valve'&&node.variant==='riser')?['center']:magnetPorts[node.type]||[]);
+  const ports=getPortNames?.(node)||((node.type==='valve'&&node.variant==='riser')?['center']:magnetPortNames(node));
   for(const port of ports){
    let ep;try{ep=magnetTarget(project,nodes,{node:node.id,port},{sourceNodeId,otherNodeId,ignoreEdgeId});}catch{continue;}
    const point=componentPort(node,ep.port);if(!point||!magnetCoordinate(point.x)||!magnetCoordinate(point.y))continue;

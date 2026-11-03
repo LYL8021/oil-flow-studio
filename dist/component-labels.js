@@ -1,4 +1,4 @@
-import {TANK_PORT_RADIUS,componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=short-nozzles-1';
+import {TANK_PORT_RADIUS,componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=ports-3-1';
 
 /* Identifier positions follow the visible glyph; they remain upright while it turns. */
 function symbolBounds(node) {

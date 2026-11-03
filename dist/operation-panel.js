@@ -1,5 +1,5 @@
-import {captureOperation,applyOperation,operationMatches,normalizeOperations,topologySignature} from './operations.js?v=source-ops-1';
-import {normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode} from './source-settings.js?v=source-1';
+import {captureOperation,applyOperation,operationMatches,normalizeOperations,topologySignature} from './operations.js?v=ports-3-1';
+import {normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode,tankPortIds} from './source-settings.js?v=ports-3-1';
 
 export function setupOperationPanel({getProject,getMode,library,apply,edit,operate,confirm,notify}) {
   const el=id=>document.getElementById(id),dialog=el('operationDialog');
@@ -91,7 +91,7 @@ export function setupOperationPanel({getProject,getMode,library,apply,edit,opera
         const state=document.createElement('span');state.className='operation-valve-state'+(sourcePortsForNode(source).length?' is-open':'');
         if(source.type==='tank'){
           const modes=normalizeTankPortModes(source);
-          state.textContent=`A ${tankLabels[modes.in]} · B ${tankLabels[modes.out]} · ${sourcePortsForNode(source).length?'有供油':'不供油'}`;
+          state.textContent=tankPortIds(source).map((port,index)=>`${'ABC'[index]} ${tankLabels[modes[port]]}`).join(' · ')+` · ${sourcePortsForNode(source).length?'有供油':'不供油'}`;
         }else state.textContent=groundLabels[normalizeGroundMode(source)];
         row.append(name,state);list.append(row);
       }

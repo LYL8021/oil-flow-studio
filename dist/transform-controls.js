@@ -1,8 +1,10 @@
-import {TANK_PORT_RADIUS,nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js?v=short-nozzles-1';
+import {TANK_PORT_RADIUS,nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js?v=ports-3-1';
+import {tankPortIds} from './source-settings.js?v=ports-3-1';
 
 /* Editing handles live above the drawing, separate from the oil connection ports. */
 const transformNamespace='http://www.w3.org/2000/svg';
-const transformFields=['rotation','scale','inAngle','outAngle'];
+const transformFields=['rotation','scale','inAngle','outAngle','out2Angle'];
+const transformNozzleField=action=>({'tank-in':'inAngle','tank-out':'outAngle','tank-out2':'out2Angle'})[action];
 const transformClamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 const transformRound=value=>Math.round(value*1000)/1000;
 
@@ -91,13 +93,14 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
       }
       if(node.type==='tank'){
         const angles=normalizeTankPorts(node);
-        // Pull the A/B guides inward to about one third of their former length,
+        // Pull the nozzle guides inward to about one third of their former length,
         // nudging only where needed to keep all drag targets separate.
         const mainRadius=Math.max(...[[left,top],[right,top],[left,bottom],[right,bottom],[rotationX,rotationY]]
           .map(([x,y])=>Math.hypot(x-node.x,y-node.y)));
         const mainTargets=[[left,top],[right,top],[left,bottom],[right,bottom],[rotationX,rotationY]],placedNozzles=[];
-        for(const [port,caption,offset] of [['in','A',26],['out','B',56]]){
-          const angle=(angles[port+'Angle']+normalizeAngle(node.rotation))*Math.PI/180;
+        for(const [index,port] of tankPortIds(node).entries()){
+          const caption=({in:'A',out:'B',out2:'C'})[port],offset=26+index*30;
+          const angle=(angles[transformNozzleField('tank-'+port)]+normalizeAngle(node.rotation))*Math.PI/180;
           const dx=Math.cos(angle),dy=Math.sin(angle),radius=TANK_PORT_RADIUS*nodeScale(node),oldRadius=Math.max(radius,mainRadius)+offset*u;
           const preferred=radius+(oldRadius-radius)/3,minimum=radius+16*u;
           let r=Math.max(minimum,preferred);
@@ -107,7 +110,7 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
           }
           const x=node.x+dx*r,y=node.y+dy*r;placedNozzles.push([x,y]);
           layer.append(element('path',{'class':'transform-leader transform-nozzle-leader',d:`M${node.x+dx*radius} ${node.y+dy*radius}L${x} ${y}`,'vector-effect':'non-scaling-stroke'}));
-          const control=handle('tank-'+port,node,x,y,`拖曳調整油槽${port==='in'?'接管口 A':'接管口 B'}方位；Shift 每次 15°`,'diamond','transform-nozzle transform-nozzle-'+port);
+          const control=handle('tank-'+port,node,x,y,`拖曳調整油槽接管口 ${caption} 方位；Shift 每次 15°`,'diamond','transform-nozzle transform-nozzle-'+port);
           control.append(element('text',{'class':'transform-caption',x:dx>=0?10*u:-10*u,y:4*u,'text-anchor':dx>=0?'start':'end','font-size':11*u},caption));
         }
       }
@@ -140,7 +143,7 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
       field='rotation';value=normalizeAngle(session.rotation+(angle-session.startAngle)*180/Math.PI);
       value=normalizeAngle(event.shiftKey?Math.round(value/15)*15:Math.round(value));
     }else{
-      field=session.action==='tank-in'?'inAngle':'outAngle';value=normalizeAngle(angle*180/Math.PI-normalizeAngle(node.rotation));
+      field=transformNozzleField(session.action);value=normalizeAngle(angle*180/Math.PI-normalizeAngle(node.rotation));
       value=normalizeAngle(event.shiftKey?Math.round(value/15)*15:Math.round(value));
     }
     const oldValue=field==='scale'?nodeScale(node):field==='rotation'?normalizeAngle(node.rotation):normalizeTankPorts(node)[field];
@@ -163,7 +166,7 @@ export function setupTransformControls({svg,getMode,getSelected,getNode,onBegin=
     if(!control||!layer.contains(control)||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
     const node=selectedNode();if(!node)return;
     stop(event);const direction=event.key==='ArrowRight'||event.key==='ArrowUp'?1:-1;
-    const action=control.dataset.transformAction,field=action==='resize'?'scale':action==='rotate'?'rotation':action==='tank-in'?'inAngle':'outAngle';
+    const action=control.dataset.transformAction,field=action==='resize'?'scale':action==='rotate'?'rotation':transformNozzleField(action);
     const oldValue=field==='scale'?nodeScale(node):field==='rotation'?normalizeAngle(node.rotation):normalizeTankPorts(node)[field];
     const value=field==='scale'?transformRound(transformClamp(oldValue+direction*.05,.25,maxNodeScale(node))):normalizeAngle(oldValue+direction*(event.shiftKey?15:1));
     if(oldValue===value)return;

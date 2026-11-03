@@ -3,7 +3,7 @@ export const MAX_DRAWING_BODY_BYTES = 24 * 1024 * 1024;
 const MAX_LIST = 100;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SAFE_ID = /^[a-zA-Z0-9_-]{1,100}$/;
-const PORTS = {text:[],point:['joint'],pipe:['in','out'],cap:['in'],flowmeter:['in','out'],tank:['in','out'],
+const PORTS = {text:[],point:['joint'],pipe:['in','out'],cap:['in'],flowmeter:['in','out'],tank:['in','out','out2'],
   ground:['port'],valve:['in','out'],elbow:['in','out'],filter:['in','out'],junction:['in','out','branch'],
   cross:['in','out','branch','top'],outlet:['in']};
 const COLUMNS = 'id, name, revision, created_at, updated_at, node_count, edge_count, operation_count, object_key';
@@ -15,6 +15,9 @@ const positive = value => Number.isSafeInteger(value) && value > 0;
 const validId = value => typeof value === 'string' && SAFE_ID.test(value);
 const position = point => plain(point) && Number.isFinite(point.x) && Number.isFinite(point.y)
   && Math.abs(point.x) <= 40000 && Math.abs(point.y) <= 40000;
+const tankModes = new Set(['inlet','outlet','closed']);
+const validTankModes = value => plain(value) && tankModes.has(value.in) && tankModes.has(value.out)
+  && (value.out2 === undefined || tankModes.has(value.out2));
 
 function uuid(value) {
   if (typeof value !== 'string' || !UUID.test(value)) throw problem('invalid-id', '圖面識別碼無效，請重新開啟共用圖面庫。');
@@ -40,15 +43,16 @@ function validateProject(project) {
     if (node.scale !== undefined && (!Number.isFinite(node.scale) || node.scale < .25 || node.scale > (node.type === 'tank' ? 30 : 4))) bad('元件大小超出範圍。');
     if (node.rotation !== undefined && !Number.isFinite(node.rotation)) bad('元件旋轉角度無效。');
     if (node.type === 'tank') {
-      for (const angle of ['inAngle', 'outAngle']) if (node[angle] !== undefined && !Number.isFinite(node[angle])) bad('油槽管口方位無效。');
-      if (node.portModes !== undefined && (!plain(node.portModes) || !['inlet','outlet','closed'].includes(node.portModes.in)
-          || !['inlet','outlet','closed'].includes(node.portModes.out))) bad('油槽管口用途無效。');
+      if (node.portCount !== undefined && ![2,3].includes(node.portCount)) bad('油槽接管口數須為 2 或 3。');
+      for (const angle of ['inAngle', 'outAngle', 'out2Angle']) if (node[angle] !== undefined && !Number.isFinite(node[angle])) bad('油槽管口方位無效。');
+      if (node.portModes !== undefined && !validTankModes(node.portModes)) bad('油槽管口用途無效。');
     }
     if (node.type === 'ground' && node.flowMode !== undefined && !['source','receive','idle'].includes(node.flowMode)) bad('出入土端來油模式無效。');
     nodes.set(node.id, node);
   }
   const edges = new Set(), caps = new Map();
-  const endpoint = ep => plain(ep) && nodes.has(ep.node) && PORTS[nodes.get(ep.node).type].includes(ep.port);
+  const endpoint = ep => plain(ep) && nodes.has(ep.node) && PORTS[nodes.get(ep.node).type].includes(ep.port)
+    && !(nodes.get(ep.node).type === 'tank' && ep.port === 'out2' && nodes.get(ep.node).portCount !== 3);
   for (const edge of project.edges) {
     if (!plain(edge) || !validId(edge.id) || edges.has(edge.id) || !endpoint(edge.from) || !endpoint(edge.to)
         || edge.from.node === edge.to.node) bad('油管接點無效或有重複編號。');
@@ -100,7 +104,7 @@ function validateProject(project) {
       if (operation.sources !== undefined && (!Array.isArray(operation.sources) || operation.sources.length > 400
           || operation.sources.some(s => !plain(s) || !validId(s.id) || !['tank','ground'].includes(s.type)
             || typeof s.enabled !== 'boolean' || (s.type === 'tank'
-              ? !plain(s.portModes) || !['inlet','outlet','closed'].includes(s.portModes.in) || !['inlet','outlet','closed'].includes(s.portModes.out)
+              ? !validTankModes(s.portModes)
               : !['source','receive','idle'].includes(s.flowMode) || s.enabled !== (s.flowMode === 'source'))))) bad('作業油源配置資料無效。');
       if (operation.sources && new Set(operation.sources.map(s => s.id)).size !== operation.sources.length) bad('作業的油源編號重複。');
       ids.add(operation.id);

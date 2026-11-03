@@ -1,4 +1,4 @@
-import {normalizeTankPortModes} from './source-settings.js?v=source-1';
+import {normalizeTankPortModes} from './source-settings.js?v=ports-3-1';
 
 /* Component copies carry equipment settings, never existing graph connections. */
 const clipboardTypes = new Set(['text','point','pipe','cap','flowmeter','tank','ground',
@@ -6,7 +6,7 @@ const clipboardTypes = new Set(['text','point','pipe','cap','flowmeter','tank','
 const clipboardId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
 const clipboardStrings = ['name','code','note','variant','kind','text','textColor','textAlign','fuel','station','flowMode'];
 const clipboardBooleans = ['review','open','bold','enabled'];
-const clipboardNumbers = ['rotation','scale','inAngle','outAngle','length','layer','fontSize','capacity'];
+const clipboardNumbers = ['rotation','scale','inAngle','outAngle','out2Angle','portCount','length','layer','fontSize','capacity'];
 const clipboardCoordinate = value => Number.isFinite(value) && Math.abs(value) <= 40000;
 
 function clipboardProjectIds(project) {
@@ -43,6 +43,9 @@ export function copyComponent(node) {
     throw new Error('請先選取有效的元件，再複製');
   }
   const result = {id:node.id, type:node.type, x:node.x, y:node.y};
+  if(node.type==='tank'&&node.portCount!==undefined&&![2,3].includes(node.portCount)) {
+    throw new Error('油槽接管口數量無效，無法複製');
+  }
   for (const field of clipboardStrings) {
     if (node[field] === undefined) continue;
     if (typeof node[field] !== 'string') throw new Error('元件文字資料無效，無法複製');

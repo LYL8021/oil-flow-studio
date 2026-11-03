@@ -1,4 +1,4 @@
-import {sourcePortsForNode,inactiveSourcePort} from './source-settings.js?v=source-1';
+import {sourcePortsForNode,inactiveSourcePort,tankPortIds} from './source-settings.js?v=ports-3-1';
 
 /**
  * Determine which ports and fuel types can be reached from enabled oil sources.
@@ -21,6 +21,7 @@ export function computeFlow(nodes, edges) {
     outlet: ['in'],
   };
   const adjacency = new Map();
+  const physicalPorts = node => node.type === 'tank' ? tankPortIds(node) : portsByType[node.type] || [];
   const nodeById = new Map(nodes.map(node=>[node.id,node]));
   const validEdges = [];
   const key = (node, port) => `${node}:${port}`;
@@ -30,13 +31,13 @@ export function computeFlow(nodes, edges) {
   };
 
   for (const node of nodes) {
-    for (const port of portsByType[node.type] || []) {
+    for (const port of physicalPorts(node)) {
       adjacency.set(key(node.id, port), new Set());
     }
   }
 
   for (const node of nodes) {
-    const ports = portsByType[node.type] || [];
+    const ports = physicalPorts(node);
     // Receiving oil never turns a storage tank into a through-pipe. Its outlet
     // is supplied only by the tank's own enabled source or another external path.
     if (node.type === 'tank' || node.type === 'valve' && node.open === false) continue;
@@ -95,7 +96,7 @@ export function computeFlow(nodes, edges) {
   const activeNodeFuels = new Map();
   for (const node of nodes) {
     const fuels = new Set();
-    for (const port of portsByType[node.type] || []) {
+    for (const port of physicalPorts(node)) {
       for (const fuel of activePortFuels.get(key(node.id, port)) || []) {
         fuels.add(fuel);
       }
