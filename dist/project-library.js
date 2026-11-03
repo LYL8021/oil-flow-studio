@@ -1,5 +1,5 @@
 import {createProjectStore} from './project-store.js?v=operations-1';
-import {createCloudProjectStore} from './cloud-project-store.js?v=cloud-1';
+import {createCloudProjectStore} from './cloud-project-store.js?v=cloud-2';
 import {operationMatches} from './operations.js?v=source-ops-1';
 import {normalizeTankPortModes,normalizeGroundMode} from './source-settings.js?v=source-1';
 

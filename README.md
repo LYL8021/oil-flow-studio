@@ -59,7 +59,9 @@ node tests/flow.test.mjs
 
 靜態發布目錄為 `dist`，免建置與依賴安裝，須保留完整 `vendor/ocr/`、`vendor/pdf/` 與其中的模型、字型、CMap、WASM 及授權檔；測試用 `npm test`。執行 `python3 scripts/package-offline.py` 可產生 `portable/` 並更新離線下載 ZIP。
 
-原 Sites 網址不會自動跟隨此 repo 更新。正式網站的「共用圖面」透過獨立雲端服務跨電腦讀取；「本機圖面」和工作草稿只留在各自瀏覽器，也可匯出／匯入 JSON 分享。詳見 [AI_EDIT_GUIDE.md](AI_EDIT_GUIDE.md)、[AGENTS.md](AGENTS.md) 及 [CLAUDE.md](CLAUDE.md)。
+主網站網址為 https://oil-flow-studio.vercel.app/；本版前端的共用圖面與修改建議服務設定指向 https://oil-flow-studio.lililinomj330223.workers.dev ，由專案擁有人的 Cloudflare Workers Free＋D1 管理。共用圖面、底圖與歷史版本以 D1 文字塊保存，不需要 R2 或開通計費；免費額度仍有容量與每日讀寫限制。「本機圖面」和工作草稿只留在各自瀏覽器，也可匯出／匯入 JSON 分享。
+
+此配置不代表正式切換已完成；發布前須暫停舊服務寫入、完整核對圖面／歷史／留言及跨瀏覽器操作，通過後才切換。舊 Sites 服務於切換後以唯讀備份保留，不再作為前端的共用儲存。後端透過已連接此程式庫的 Cloudflare Builds 發布；日常運作不需要 Codex 的開發環境持續開啟。詳見 [server/README.md](server/README.md)、[AI_EDIT_GUIDE.md](AI_EDIT_GUIDE.md)、[AGENTS.md](AGENTS.md) 及 [CLAUDE.md](CLAUDE.md)。
 
 ## 圖面儲存區
 
