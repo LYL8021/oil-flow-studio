@@ -9,11 +9,31 @@
 1. 先登入要長期管理此專案的 Cloudflare 帳號，再按上面的按鈕。
 2. 依畫面連接你的 GitHub。Cloudflare 會將這個獨立後端範本複製為你帳號內的新程式庫，並接上自動建置；原本的油路工坊程式庫與 Vercel 網址保留。
 3. 保留程式要求的 `DB`（D1 資料庫）與 `BUCKET`（R2 儲存桶）綁定；可以接受 Cloudflare 建議的資源名稱。部署按鈕流程會先建立資源，再執行資料表遷移與 Worker 發布。若 Cloudflare 要求啟用 R2 或確認帳務，需由帳號擁有人在 Cloudflare 完成。
-4. 部署成功後，保存 Cloudflare 顯示的實際 `https://oil-flow-shared.<帳號子網域>.workers.dev` 網址，供後續核對與搬移。不要自行猜測子網域。
+4. 部署成功後，保存 Cloudflare 顯示的實際網址，供後續核對與搬移。目前已建立的 Worker 名稱是 `oil-flow-studio`，網址為 `https://oil-flow-studio.lililinomj330223.workers.dev`；其他帳號或名稱以實際回傳網址為準。
 
 整個登入與授權都在 Cloudflare／GitHub 進行，不需要把密碼或 API Token 貼進聊天。服務費用依 Cloudflare 當時的方案及用量決定，這份程式不保證永久免費。
 
 此資料夾是可獨立部署的範本，已附 `worker.js`、設定與遷移，不需要讀取上層原始碼。`npm run deploy` 會先以 `DB` 綁定套用未執行的遷移，再發布 Worker。發布程式或看到空清單，均不代表原有資料已搬移。
+
+## 已建立 oil-flow-studio，但網址只顯示主網站時
+
+這表示 Cloudflare 發布了完整程式庫的靜態頁面。原本的主網站仍使用 Vercel；此 Cloudflare Worker 應提供共用圖面與留言 API。
+
+到 Cloudflare 的 **Workers & Pages → oil-flow-studio → Settings → Builds → Build configuration**，設定：
+
+| 欄位 | 設定 |
+| --- | --- |
+| GitHub 程式庫 | `LYL8021/oil-flow-studio` |
+| 正式分支 | `main` |
+| Root directory | `server/cloudflare` |
+| Build command | 留白 |
+| Deploy command | `npm run deploy:bootstrap` |
+
+儲存設定，再從建置紀錄選擇重新執行／Retry build。Worker 名稱需與 `wrangler.jsonc` 的 `name` 完全相同，都是 `oil-flow-studio`。建置成功後，此 Cloudflare 網址首頁改為 JSON 服務資訊是預期結果；Vercel 主網站網址不變。
+
+`deploy:bootstrap` 先發布 Worker，讓 Wrangler 為 `DB`／`BUCKET` 建立或沿用綁定、把實際資源 ID 寫入本次建置的設定；接著套用 D1 遷移並再次發布。初次發布到資料表建立完成之間，API 可能暫時無法使用，正式網站此時仍使用原服務。若 Cloudflare 要求啟用 R2 或確認帳務，須先由帳號擁有人完成。
+
+設定未保存實際 D1 ID／R2 名稱時，後續 Git 建置也維持 `npm run deploy:bootstrap`。每次建置是新的工作目錄，不能假設上次自動產生的設定仍存在；Wrangler 會沿用 Worker 已連接的資源。只有把已驗證的實際綁定 ID／名稱保存到部署設定後，才能改用先遷移再發布的 `npm run deploy`。不得改綁到新的空白資料庫或儲存桶。
 
 ## 搬移既有圖面、歷史與留言
 
@@ -43,7 +63,7 @@ npm run deploy
 
 登入時選擇自己的 Cloudflare 帳號，`whoami` 可確認帳號。設定未填 D1 ID／R2 名稱，Wrangler 4.45 以上的 `deploy` 會自動建立缺少的資源並將實際 ID 寫回設定；日後部署須沿用相同資源。首次 `provision` 到資料表建立完成之間，API 可能暫時無法使用，正式網站此時仍指向舊服務。
 
-`npm run check` 可驗證本機打包；它不會發布。`npm run db:migrate:local` 僅套用到本機測試資料庫。日後正常更新用 `npm run deploy`，已套用的 SQL 不得修改，資料結構變更需新增後續遷移。
+首次也可用 `npm run deploy:bootstrap` 代替最後三個命令。`npm run check` 可驗證本機打包；它不會發布。`npm run db:migrate:local` 僅套用到本機測試資料庫。本機已保存實際綁定的後續更新可用 `npm run deploy`；未保存綁定的 Git 建置維持 `npm run deploy:bootstrap`。已套用的 SQL 不得修改，資料結構變更需新增後續遷移。
 
 若要直接連接完整的既有程式庫至 Workers Builds，可設定：
 
@@ -53,9 +73,9 @@ npm run deploy
 | 正式分支 | `main` |
 | Root directory | `server/cloudflare` |
 | Build command | 留白 |
-| Deploy command | `npm run deploy` |
+| Deploy command | `npm run deploy:bootstrap` |
 
-直接 Git 連線前，先完成資源建立與綁定；網頁建置工作目錄是暫時的，不能把裡面自動產生的 ID 當成已存進 GitHub。使用部署按鈕建立的獨立範本會由 Cloudflare 完成首次資源配置。
+直接 Git 連線使用 `deploy:bootstrap` 完成資源建立、遷移與發布；網頁建置工作目錄是暫時的，不能把裡面自動產生的 ID 當成已存進 GitHub。使用部署按鈕建立的獨立範本會由 Cloudflare 完成首次資源配置。
 
 ## 維護上游原始碼
 
