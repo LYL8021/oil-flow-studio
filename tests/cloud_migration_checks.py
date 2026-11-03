@@ -66,6 +66,13 @@ def api_for(bundle, change_after=None):
 
 
 class MigrationChecks(unittest.TestCase):
+    def test_snapshot_chunking_preserves_utf8_boundaries_under_sql_statement_limit(self):
+        original = ('圖面😀é' * 20000).encode('utf-8')
+        chunks = list(m.snapshot_chunks(original))
+        self.assertGreater(len(chunks), 1)
+        self.assertEqual(''.join(chunks).encode('utf-8'), original)
+        self.assertTrue(all(len(part.encode('utf-8')) <= 32 * 1024 for part in chunks))
+
     def test_public_export_preserves_all_versions_and_comments_and_handles_pagination(self):
         expected = fixture()
         with patch.object(m, 'read_api', side_effect=api_for(expected)):
@@ -122,6 +129,36 @@ class MigrationChecks(unittest.TestCase):
             db.executescript((destination/'import.sql').read_text())
             self.assertEqual(db.execute('SELECT request_id, request_hash FROM drawing_revisions ORDER BY revision').fetchall(),
                              [(row['request_id'],row['request_hash']) for row in rows]);db.close()
+
+    def test_d1_prepare_stores_all_snapshot_chunks_without_r2_and_under_statement_limit(self):
+        bundle = fixture()
+        for version in bundle['drawings'][0]['versions']:
+            version['project']['reference']['dataUrl'] = 'data:image/png;base64,' + 'YWJj' * 35000
+            version['project']['nodes'][0]['note'] = '多位元😀字元' * 1000
+        bundle['checksum'] = m.digest({key:value for key,value in bundle.items() if key!='checksum'})
+        with tempfile.TemporaryDirectory() as parent:
+            destination = Path(parent) / 'd1-import'
+            plan = m.prepare_import(bundle, destination, storage='d1')
+            self.assertEqual(plan['storage'], 'd1');self.assertEqual(plan['objects'], [])
+            self.assertFalse((destination / 'objects').exists(), 'D1 plan must not require an R2 directory')
+            self.assertGreater(plan['snapshotChunks'], 2)
+            self.assertLess(plan['maxStatementBytes'], 90000)
+            sql = (destination / 'import.sql').read_text()
+            db = sqlite3.connect(':memory:');db.row_factory = sqlite3.Row
+            for schema in ['feedback-schema.sql','drawings-schema.sql','d1-snapshots-schema.sql']:
+                db.executescript((ROOT/'server'/schema).read_text())
+            db.executescript(sql)
+            snapshots = db.execute('SELECT * FROM drawing_snapshot_objects ORDER BY object_key').fetchall()
+            self.assertEqual(len(snapshots), 2)
+            for index, header in enumerate(snapshots):
+                parts = db.execute('SELECT chunk_index,body FROM drawing_snapshot_chunks WHERE object_key=? ORDER BY chunk_index', [header['object_key']]).fetchall()
+                self.assertEqual([part['chunk_index'] for part in parts], list(range(header['chunk_count'])))
+                data = ''.join(part['body'] for part in parts).encode('utf-8')
+                self.assertEqual(len(data), header['byte_length'])
+                self.assertEqual(json.loads(data), bundle['drawings'][0]['versions'][index]['project'])
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM drawing_revisions').fetchone()[0], 2)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM feedback').fetchone()[0], 1)
+            db.close()
 
     def test_changed_source_incomplete_history_and_altered_backup_are_rejected(self):
         bundle = fixture()

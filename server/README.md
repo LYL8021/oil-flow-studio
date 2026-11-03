@@ -2,7 +2,9 @@
 
 ## 搬到自己的 Cloudflare
 
-已提供可獨立部署的 [Cloudflare 後端](cloudflare/README.md)，含一鍵部署按鈕、D1 遷移與 R2 綁定。完整資料搬移工具與核對順序見 [CLOUD_MIGRATION.md](../scripts/CLOUD_MIGRATION.md)。
+已提供可獨立部署的 [Cloudflare 後端](cloudflare/README.md)，含一鍵部署按鈕與 D1 遷移；Cloudflare 版本僅使用 Workers Free＋D1，不需要 R2、綁卡或付費方案。完整資料搬移工具與核對順序見 [CLOUD_MIGRATION.md](../scripts/CLOUD_MIGRATION.md)。
+
+Cloudflare 的 `deploy:bootstrap` 會在建置環境內，以擁有人已授權的 Wrangler 將舊服務資料匯入空白 D1；完成標記後的日常部署不再讀取舊 Sites。免費額度有容量與每日讀寫限制，超額會失敗，不會自動升級成付費方案。
 
 這些檔案只代表搬移準備完成。取得自己帳號的實際 Worker 網址、保留全部圖面與歷史留言、確認資料核對與跨瀏覽器測試通過後，才修改前端服務網址；目前正式前端仍連原服務。本機圖面不在此搬移範圍，不會自動上傳。Cloudflare 與 Vercel 各依帳號方案運作，不保證永久免費。
 
@@ -10,7 +12,7 @@
 
 https://oil-flow-feedback-8c41.sacredzebra19.chatgpt.site
 
-後端由 Sites Worker、D1 與 R2 提供；不需要同仁登入。所有訪客可讀取與新增留言，也可在共用圖面庫開啟、儲存及更新圖面。介面告知共用圖面可由使用此網站的人開啟。本機圖面與工作草稿不自動上傳；明確儲存／分享共用圖面時才上傳完整圖面與已套用的圖片底圖，原始 PDF 不會上傳。
+目前尚未切換的正式後端由 Sites Worker、D1 與 R2 提供；不需要同仁登入。所有訪客可讀取與新增留言，也可在共用圖面庫開啟、儲存及更新圖面。介面告知共用圖面可由使用此網站的人開啟。本機圖面與工作草稿不自動上傳；明確儲存／分享共用圖面時才上傳完整圖面與已套用的圖片底圖，原始 PDF 不會上傳。
 
 ## 原始碼與部署
 
@@ -41,3 +43,9 @@ https://oil-flow-feedback-8c41.sacredzebra19.chatgpt.site
 D1 的 `drawings` 保存目前版本 metadata，`drawing_revisions` 保存不可變的歷史索引與 requestId。完整 JSON（包含底圖）存於 R2，避免 D1 單列大小限制。請求最多 24 MiB，圖片底圖仍沿用編輯器的 3.5 MB data URL 上限；伺服器檢查圖形、接管、作業與底圖資料。先寫不可變 R2 物件，再用原子 D1 batch 更新指定版本與歷史；失敗不能刪除可能已提交的物件。
 
 `node --test tests/drawings-worker.test.mjs tests/cloud-project-store.test.mjs` 驗證持久化、歷史、實際 SQLite 交易、競爭更新、重試去重、失敗保留、格式及權限。`npm test` 同時確認既有留言與油路功能。
+
+## D1 免費方案與最終切換
+
+`d1-snapshots.js` 提供 `get/put/delete` 快照介面，將完整 JSON 拆成 UTF-8 文字塊，避免單一 D1 資料列過大；header 與文字塊以原子 batch 寫入，不改變圖面、底圖或作業資料。`d1-snapshots-schema.sql` 必須以新增遷移套用。僅當沒有 `BUCKET` 時使用此介面，保留原 Sites R2 相容性。
+
+原服務最終切換時，可在執行時設定 `SHARED_READ_ONLY=1` 並發布，暫停共用圖面與留言的 POST／DELETE，讀取與本機畫布保留。暫停後重做完整來源快照、核對新 Cloudflare 資料及跨瀏覽器讀寫；通過才更新前端網址。不能因新服務顯示空清單或第一次建置成功便宣稱搬移完成。

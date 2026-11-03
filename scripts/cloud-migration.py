@@ -25,6 +25,18 @@ META = ('id', 'name', 'revision', 'createdAt', 'updatedAt', 'nodeCount', 'edgeCo
 FEEDBACK = ('id', 'name', 'title', 'category', 'body', 'createdAt')
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
 MAX_FILE_BYTES = 256 * 1024 * 1024
+SNAPSHOT_CHUNK_BYTES = 32 * 1024
+
+
+def snapshot_chunks(data):
+    """Split UTF-8 JSON without splitting a code point or exceeding SQL limits."""
+    offset = 0
+    while offset < len(data):
+        end = min(offset + SNAPSHOT_CHUNK_BYTES, len(data))
+        while end < len(data) and end > offset and data[end] & 0xc0 == 0x80:
+            end -= 1
+        yield data[offset:end].decode('utf-8')
+        offset = end
 
 
 class MigrationError(Exception):
@@ -242,15 +254,18 @@ def private_write(path, data):
     with os.fdopen(fd, 'wb') as output: output.write(data)
 
 
-def prepare_import(bundle, destination):
+def prepare_import(bundle, destination, storage='r2'):
     validate_bundle(bundle)
+    if storage not in ('d1', 'r2'):
+        fail('Choose the target snapshot storage explicitly: d1 or r2.')
     destination = Path(destination).resolve()
     repository = Path(__file__).resolve().parents[1]
     if destination == repository or repository in destination.parents:
         fail('Private backup/import files must be outside the Git repository.')
     destination.mkdir(mode=0o700, parents=True, exist_ok=False)
-    objects_dir = destination / 'objects'; objects_dir.mkdir(mode=0o700)
-    statements, objects = [], []
+    objects_dir = destination / 'objects'
+    if storage == 'r2': objects_dir.mkdir(mode=0o700)
+    statements, objects, revision_count, chunk_count = [], [], 0, 0
     for item in bundle['feedback']:
         statements.append(insert('feedback', ['id','name','title','category','body','created_at'],
                                  [item[field] for field in FEEDBACK]))
@@ -260,9 +275,18 @@ def prepare_import(bundle, destination):
             provenance = version.get('provenance')
             key = provenance['objectKey'] if provenance else f"migration/{bundle['checksum']}/{drawing['id']}/{version['revision']}.json"
             data = json_bytes(version['project'])
-            filename = hashlib.sha256(key.encode()).hexdigest() + '.json'
-            private_write(objects_dir / filename, data)
-            objects.append({'key': key, 'file': 'objects/' + filename, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+            revision_count += 1
+            if storage == 'r2':
+                filename = hashlib.sha256(key.encode()).hexdigest() + '.json'
+                private_write(objects_dir / filename, data)
+                objects.append({'key': key, 'file': 'objects/' + filename, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+            else:
+                parts = list(snapshot_chunks(data))
+                statements.append(insert('drawing_snapshot_objects', ['object_key','byte_length','chunk_count','created_at'],
+                                         [key,len(data),len(parts),version['updatedAt']]))
+                for index, part in enumerate(parts):
+                    statements.append(insert('drawing_snapshot_chunks', ['object_key','chunk_index','body'], [key,index,part]))
+                chunk_count += len(parts)
             request_id = provenance['requestId'] if provenance else str(uuid.uuid5(uuid.NAMESPACE_URL,
                          bundle['source'] + '/api/drawings/' + drawing['id'] + '/revisions/' + str(version['revision'])))
             request_hash = provenance['requestHash'] if provenance else digest({'migratedFrom': bundle['source'], 'snapshot': version})
@@ -275,10 +299,16 @@ def prepare_import(bundle, destination):
             statements.append(insert('drawing_revisions', ['drawing_id','revision','name','created_at','updated_at','node_count','edge_count','operation_count','object_key','request_id','request_hash'],
                 [drawing['id'],version['revision'],version['name'],version['createdAt'],version['updatedAt'],version['nodeCount'],version['edgeCount'],version['operationCount'],key,request_id,request_hash]))
     sql = ''.join(statements).encode()
+    # D1 limits individual SQL statements to 100 KB. Keep additional headroom.
+    if any(len(statement.encode('utf-8')) > 90000 for statement in statements):
+        fail('An import statement exceeds the safe D1 SQL size; no import was applied.')
     private_write(destination / 'import.sql', sql)
-    manifest = {'format': FORMAT, 'source': bundle['source'], 'checksum': bundle['checksum'], 'requestProvenance': bundle['requestProvenance'],
-                'counts': {'feedback': len(bundle['feedback']), 'drawings': len(bundle['drawings']), 'revisions': len(objects)},
-                'sqlSha256': hashlib.sha256(sql).hexdigest(), 'objects': objects}
+    manifest = {'format': FORMAT, 'source': bundle['source'], 'checksum': bundle['checksum'], 'storage': storage,
+                'requestProvenance': bundle['requestProvenance'],
+                'counts': {'feedback': len(bundle['feedback']), 'drawings': len(bundle['drawings']), 'revisions': revision_count},
+                'snapshotChunks': chunk_count,
+                'sqlSha256': hashlib.sha256(sql).hexdigest(), 'maxStatementBytes': max((len(statement.encode('utf-8')) for statement in statements),default=0),
+                'objects': objects}
     private_write(destination / 'import-plan.json', json_bytes(manifest))
     return manifest
 
@@ -309,6 +339,8 @@ def main():
     export.add_argument('--output', required=True); export.add_argument('--provenance')
     prepare = commands.add_parser('prepare'); prepare.add_argument('--backup', required=True)
     prepare.add_argument('--destination', required=True)
+    prepare.add_argument('--storage', choices=['d1','r2'], required=True,
+                         help='Use d1 for the Workers+D1 deployment; r2 is only for an explicitly selected legacy R2 target.')
     verify = commands.add_parser('verify'); verify.add_argument('--backup', required=True)
     verify.add_argument('--target', required=True)
     args = parser.parse_args()
@@ -320,8 +352,8 @@ def main():
         private_write(output, json_bytes(bundle))
         print(json.dumps({'exported': True, 'drawings': len(bundle['drawings']), 'feedback': len(bundle['feedback']), 'checksum': bundle['checksum']}))
     elif args.command == 'prepare':
-        plan = prepare_import(load_file(args.backup), args.destination)
-        print(json.dumps({'prepared': True, **plan['counts'], 'checksum': plan['checksum']}))
+        plan = prepare_import(load_file(args.backup), args.destination, storage=args.storage)
+        print(json.dumps({'prepared': True, 'storage': plan['storage'], **plan['counts'], 'checksum': plan['checksum']}))
     else:
         print(json.dumps({'verified': True, **verify_target(load_file(args.backup), args.target)}))
 
