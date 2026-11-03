@@ -1,4 +1,5 @@
 import {handleDrawings} from './drawings-worker.js';
+import {createD1SnapshotStore} from './d1-snapshots.js';
 /* Anonymous shared suggestions; D1 schema is installed by deployment migrations. */
 const MAX_BODY_BYTES = 16384;
 const MAX_LIST_SIZE = 200;
@@ -167,8 +168,14 @@ export default {
     const url = new URL(request.url), origin = request.headers.get('Origin');
     const allowed = allowedOrigin(origin, url.origin);
     if (!allowed) return reply({error:'此來源無法使用建議服務。'}, 403, origin, false);
+    if (env?.SHARED_READ_ONLY === '1' && ['POST','DELETE'].includes(request.method)
+        && (/^\/api\/(?:drawings|feedback)(?:\/|$)/).test(url.pathname)) {
+      return reply({error:'共用資料正在搬移，暫時無法儲存。請保留目前畫布，稍後再試。',code:'maintenance'}, 503, origin);
+    }
     if (url.pathname === '/api/drawings' || url.pathname.startsWith('/api/drawings/')) {
-      return handleDrawings(request, env, {origin, reply, responseHeaders, authorizedMaintenance});
+      const drawingEnv = !env?.BUCKET && env?.DB?.prepare && env.DB.batch
+        ? {...env, BUCKET:createD1SnapshotStore(env.DB)} : env;
+      return handleDrawings(request, drawingEnv, {origin, reply, responseHeaders, authorizedMaintenance});
     }
     if (request.method === 'GET' && url.pathname === '/') {
       return reply({service:'油路工坊修改建議', api:'/api/feedback'}, 200, origin);

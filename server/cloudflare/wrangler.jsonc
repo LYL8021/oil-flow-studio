@@ -9,10 +9,5 @@
       "binding": "DB",
       "migrations_dir": "migrations"
     }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "BUCKET"
-    }
   ]
 }
