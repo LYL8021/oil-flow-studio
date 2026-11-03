@@ -1,4 +1,4 @@
-import {normalizeTankPortModes,normalizeGroundMode} from './source-settings.js?v=source-1';
+import {normalizeTankPortModes,normalizeGroundMode,tankPortCount,tankPortIds} from './source-settings.js?v=ports-3-1';
 
 // Presets describe operational valve and source settings for one fixed diagram.
 // They never carry geometry, oil-product changes, or executable actions.
@@ -37,11 +37,13 @@ function normalizeOperationSources(value) {
     ids.add(source.id);
     if(source.type==='tank'){
       if(!source.portModes || typeof source.portModes!=='object' || Array.isArray(source.portModes)
-          || !tankModes.has(source.portModes.in) || !tankModes.has(source.portModes.out)) {
+          || !tankModes.has(source.portModes.in) || !tankModes.has(source.portModes.out)
+          || (source.portModes.out2 !== undefined && !tankModes.has(source.portModes.out2))) {
         throw operationProblem('invalid-operation','作業的油槽接管口用途無效。');
       }
       return {id:source.id,type:'tank',enabled:source.enabled,
-        portModes:{in:source.portModes.in,out:source.portModes.out}};
+        portModes:{in:source.portModes.in,out:source.portModes.out,
+          ...(source.portModes.out2 === undefined ? {} : {out2:source.portModes.out2})}};
     }
     if(!['source','receive','idle'].includes(source.flowMode)
         || source.enabled!==(source.flowMode==='source')) {
@@ -61,7 +63,7 @@ function sourceState(node) {
 function sourceMatches(node,setting) {
   const state=sourceState(node);
   return state.enabled===setting.enabled && (state.type==='tank'
-    ? state.portModes.in===setting.portModes.in && state.portModes.out===setting.portModes.out
+    ? tankPortIds(node).every(port=>state.portModes[port]===setting.portModes[port])
     : state.flowMode===setting.flowMode);
 }
 
@@ -130,7 +132,10 @@ function operationTopology(project) {
     nodeIds.add(node.id);
     if (node.type === 'text') return null;
     hydraulicNodeIds.add(node.id);
-    return [node.id, node.type, node.type === 'valve' ? String(node.code ?? '') : ''];
+    const identity=[node.id, node.type, node.type === 'valve' ? String(node.code ?? '') : ''];
+    // Keep every legacy two-port signature byte-for-byte compatible.
+    if(node.type==='tank'&&tankPortCount(node)===3)identity.push(3);
+    return identity;
   }).filter(Boolean);
   const edges = project.edges.map(edge => {
     const endpointValid = endpoint => endpoint && hydraulicNodeIds.has(endpoint.node) && typeof endpoint.port === 'string' && endpoint.port.length > 0 && endpoint.port.length <= 100;
@@ -178,6 +183,9 @@ function compatibleOperation(project, value) {
     const node=byId.get(setting.id);
     if(!node || node.type!==setting.type) {
       throw operationProblem('incompatible','這項作業的油源設定無法對應目前元件，請重新檢查並儲存。');
+    }
+    if(node.type==='tank' && (tankPortCount(node)===3) !== Object.hasOwn(setting.portModes,'out2')) {
+      throw operationProblem('incompatible','這項作業的油槽接管口數量不同，請重新檢查並儲存。');
     }
     return {node,setting};
   });

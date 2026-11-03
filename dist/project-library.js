@@ -1,7 +1,7 @@
 import {createProjectStore} from './project-store.js?v=operations-1';
 import {createCloudProjectStore} from './cloud-project-store.js?v=cloud-1';
-import {operationMatches} from './operations.js?v=source-ops-1';
-import {normalizeTankPortModes,normalizeGroundMode} from './source-settings.js?v=source-1';
+import {operationMatches} from './operations.js?v=ports-3-1';
+import {normalizeTankPortModes,normalizeGroundMode} from './source-settings.js?v=ports-3-1';
 
 function librarySourceSettings(node) {
   if(node?.type==='tank')return JSON.stringify({enabled:node.enabled!==false,portModes:normalizeTankPortModes(node)});

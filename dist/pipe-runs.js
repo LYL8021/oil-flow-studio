@@ -1,6 +1,7 @@
+import {tankPortIds} from './source-settings.js?v=ports-3-1';
 /* Continuous drawing commits one explicit graph change; visual crossings stay separate. */
 const runPorts = {
-  point: ['joint'], ground: ['port'], text: [], tank: ['in', 'out'], valve: ['in', 'out'], elbow: ['in', 'out'],
+  point: ['joint'], ground: ['port'], text: [], tank: ['in', 'out', 'out2'], valve: ['in', 'out'], elbow: ['in', 'out'],
   filter: ['in', 'out'], flowmeter: ['in', 'out'], pipe: ['in', 'out'],
   cap: ['in'], junction: ['in', 'out', 'branch'],
   cross: ['in', 'out', 'branch', 'top'], outlet: ['in']
@@ -56,8 +57,10 @@ export function commitPipeRun(project, {start, end, points, kind = 'normal', idF
     }
     runPoint(node);nodeMap.set(node.id, node);ids.add(node.id);
   }
-  const validEndpoint = value => value && nodeMap.has(value.node)
-    && runPorts[nodeMap.get(value.node).type].includes(value.port);
+  const validEndpoint = value => {
+    const node=value&&nodeMap.get(value.node);
+    return !!node&&(node.type==='tank'?tankPortIds(node):runPorts[node.type]).includes(value.port);
+  };
   for (const edge of next.edges) {
     if (!edge || !validRunId(edge.id) || edgeIds.has(edge.id)
         || !validEndpoint(edge.from) || !validEndpoint(edge.to)) {

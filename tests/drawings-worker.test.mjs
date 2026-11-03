@@ -54,6 +54,28 @@ function drawing(){
     draftInfo:{kind:'image',title:'日南參考',notice:'請人工核對',reviewNotes:['A／B 口方向已確認']}};
 }
 
+function threePortDrawing(){
+  const project=drawing(),tank=project.nodes[0];
+  Object.assign(tank,{portCount:3,out2Angle:222.5,portModes:{in:'inlet',out:'outlet',out2:'outlet'}});
+  project.nodes.push(
+    {id:'valve2',type:'valve',x:500,y:500,open:true,variant:'flanged',rotation:30,scale:1,name:'',code:'V-02'},
+    {id:'ground2',type:'ground',variant:'rise',x:800,y:500,flowMode:'receive',enabled:false,fuel:'diesel',station:'第二出口',name:'',code:''}
+  );
+  project.edges.push(
+    {id:'e3',from:{node:'tank1',port:'out2'},to:{node:'valve2',port:'in'},kind:'normal',routing:'free',layer:2,waypoints:[{x:300,y:450}]},
+    {id:'e4',from:{node:'valve2',port:'out'},to:{node:'ground2',port:'port'},kind:'underground',routing:'orthogonal',waypoints:[]}
+  );
+  const operation=project.operations[0];
+  operation.signature='topology-v1:'+JSON.stringify({
+    nodes:project.nodes.map(node=>[node.id,node.type,node.type==='valve'?node.code:'',...(node.type==='tank'?[3]:[])]),
+    edges:project.edges.map(edge=>[edge.id,edge.from.node,edge.from.port,edge.to.node,edge.to.port])
+  });
+  operation.valves.push({id:'valve2',open:true});
+  operation.sources[0].portModes={...tank.portModes};
+  operation.sources.push({id:'ground2',type:'ground',enabled:false,flowMode:'receive'});
+  return project;
+}
+
 function request(path='/api/drawings',{method='GET',body,origin=ORIGIN,headers={}}={}){
   return new Request(BASE+path,{method,headers:{...(origin?{Origin:origin}:{}),...(body===undefined?{}:{'Content-Type':'application/json'}),...headers},
     ...(body===undefined?{}:{body:typeof body==='string'?body:JSON.stringify(body)})});
@@ -85,6 +107,92 @@ test('drawings persist in shared storage across independent readers with complet
     assert.equal(independent.response.headers.get('Cache-Control'),'no-store');
     assert.equal(independent.response.headers.get('Access-Control-Allow-Origin'),ORIGIN);
     assert.equal(db.objects.size,1);
+  }finally{db.close();}
+});
+
+test('three-port tank drawings preserve both outlet branches, independent C roles and historical geometry',async()=>{
+  const db=storage();
+  try{
+    const project=threePortDrawing(),saved=await create(db,101,{name:'三口燃料油槽',project});
+    assert.deepEqual(saved.project,project);
+    assert.equal(saved.nodeCount,5);assert.equal(saved.edgeCount,4);
+    const independent=await fetchJson(db,'/api/drawings/'+saved.id);
+    assert.deepEqual(independent.data.project,project,'C port metadata, branch routes and source operation must round-trip unchanged');
+    let latest=saved;
+    for(const [index,mode] of ['inlet','closed','outlet'].entries()){
+      const next=structuredClone(project);
+      next.nodes[0].portModes.out2=mode;next.operations[0].sources[0].portModes.out2=mode;
+      const result=await update(db,latest,102+index,{project:next});
+      assert.equal(result.response.status,200,JSON.stringify(result.data));
+      assert.equal(result.data.item.project.nodes[0].portModes.out2,mode);
+      assert.equal(result.data.item.project.operations[0].sources[0].portModes.out2,mode);
+      assert.equal(result.data.item.project.nodes[0].out2Angle,222.5);
+      assert.equal(result.data.item.project.nodes[0].scale,30);
+      assert.deepEqual(result.data.item.project.edges,project.edges);
+      latest=result.data.item;
+    }
+    const first=await fetchJson(db,`/api/drawings/${saved.id}/revisions/1`);
+    assert.deepEqual(first.data.project,project,'later C role changes must not rewrite the original three-port snapshot');
+    assert.deepEqual((await fetchJson(db,`/api/drawings/${saved.id}/revisions`)).data.items.map(item=>item.revision),[4,3,2,1]);
+  }finally{db.close();}
+});
+
+test('invalid C endpoints, port counts, angles and source roles cannot replace an accepted drawing',async()=>{
+  const db=storage();
+  try{
+    const project=threePortDrawing(),saved=await create(db,120,{name:'保留三口圖面',project});
+    const invalid=[
+      p=>{delete p.nodes[0].portCount;},
+      p=>{p.nodes[0].portCount=2;},
+      p=>{p.nodes[0].portCount='3';},
+      p=>{p.nodes[0].portCount=4;},
+      p=>{p.nodes[0].out2Angle='90';},
+      p=>{p.nodes[0].out2Angle=null;},
+      p=>{p.nodes[0].portModes.out2='source';},
+      p=>{p.nodes[0].portModes.out2=null;},
+      p=>{p.edges[2].from.port='c';},
+      p=>{p.operations[0].sources[0].portModes.out2='invalid';},
+      p=>{p.operations[0].sources[0].portModes.out2=null;}
+    ];
+    for(const [index,mutate] of invalid.entries()){
+      const next=structuredClone(project);mutate(next);
+      const result=await update(db,saved,121+index,{project:next});
+      assert.equal(result.response.status,400,'invalid three-port update '+index);
+      assert.equal(result.data.code,'invalid-project');
+    }
+    const latest=await fetchJson(db,'/api/drawings/'+saved.id);
+    assert.equal(latest.data.revision,1);assert.deepEqual(latest.data.project,project);
+    assert.equal((await fetchJson(db,`/api/drawings/${saved.id}/revisions`)).data.total,1);
+    assert.equal(db.objects.size,1,'invalid updates must not write replacement or orphan snapshots');
+  }finally{db.close();}
+});
+
+test('D1-only shared storage accepts a third-port graph and retains its complete C-port history',async()=>{
+  const db=storage();
+  try{
+    db.sql.exec(schema('d1-snapshots-schema.sql'));delete db.env.BUCKET;
+    const project=threePortDrawing(),saved=await create(db,135,{name:'D1 三口圖面',project});
+    assert.deepEqual((await fetchJson(db,'/api/drawings/'+saved.id)).data.project,project);
+    const next=structuredClone(project);next.nodes[0].portModes.out2='closed';
+    const changed=await update(db,saved,136,{project:next});
+    assert.equal(changed.response.status,200);assert.deepEqual(changed.data.item.project,next);
+    assert.deepEqual((await fetchJson(db,`/api/drawings/${saved.id}/revisions/1`)).data.project,project);
+    assert.equal(db.objects.size,0,'the D1-only backend must not require or write R2');
+    assert.equal(db.sql.prepare('SELECT COUNT(*) AS n FROM drawing_snapshot_objects').get().n,2);
+  }finally{db.close();}
+});
+
+test('legacy two-port drawings and A/B-only operations remain accepted beside the optional third port',async()=>{
+  const db=storage();
+  try{
+    const legacy=drawing(),old=await create(db,140,{name:'舊兩口圖面',project:legacy});
+    assert.deepEqual((await fetchJson(db,'/api/drawings/'+old.id)).data.project,legacy);
+    const explicit=structuredClone(legacy);explicit.nodes[0].portCount=2;
+    assert.equal((await update(db,old,141,{project:explicit})).response.status,200);
+    const optional=threePortDrawing();delete optional.nodes[0].portModes.out2;
+    delete optional.operations[0].sources[0].portModes.out2;
+    const saved=await create(db,142,{name:'三口預設用途',project:optional});
+    assert.deepEqual(saved.project,optional,'missing optional C modes retain the client default rather than dropping fields or changing legacy source records');
   }finally{db.close();}
 });
 

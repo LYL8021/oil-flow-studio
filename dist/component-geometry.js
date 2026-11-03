@@ -1,3 +1,5 @@
+import {tankPortCount,tankPortIds} from './source-settings.js?v=ports-3-1';
+
 /* Shared geometry for rendered symbols, connection ports and direct manipulation. */
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const clean = value => Math.abs(value) < 1e-10 ? 0 : value;
@@ -20,9 +22,10 @@ export function nodeScale(node) {
   return Number.isFinite(node?.scale) ? clamp(node.scale, .25, maxNodeScale(node)) : 1;
 }
 
-/** Angles are relative to the tank; rotation moves both independently placed nozzles. */
+/** Angles are relative to the tank; rotation moves each independently placed nozzle. */
 export function normalizeTankPorts(node) {
-  return {inAngle:normalizeAngle(node?.inAngle, 180), outAngle:normalizeAngle(node?.outAngle, 0)};
+  return {inAngle:normalizeAngle(node?.inAngle, 180), outAngle:normalizeAngle(node?.outAngle, 0),
+    ...(tankPortCount(node) === 3 ? {portCount:3,out2Angle:normalizeAngle(node?.out2Angle,90)} : {})};
 }
 
 /** Return a connection's world position and outward unit direction, or null. */
@@ -30,7 +33,7 @@ export function componentPort(node, port) {
   if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return null;
   let local;
   const ports = {
-    point:['joint'], tank:['in','out'], ground:['port'], pipe:['in','out'],
+    point:['joint'], tank:tankPortIds(node), ground:['port'], pipe:['in','out'],
     cap:['in'], outlet:['in'], elbow:['in','out'], valve:['in','out'],
     filter:['in','out'], flowmeter:['in','out'], junction:['in','out','branch'],
     cross:['in','out','branch','top']
@@ -39,7 +42,7 @@ export function componentPort(node, port) {
   if (!(central && port === 'center') && !ports[node.type]?.includes(port)) return null;
   if (node.type === 'point' || central) local=[0,0,port === 'in' ? -1 : port === 'out' ? 1 : 0,0];
   else if (node.type === 'tank') {
-    const angles=normalizeTankPorts(node), angle=angles[port === 'in' ? 'inAngle' : 'outAngle']*Math.PI/180;
+    const angles=normalizeTankPorts(node), angle=angles[port === 'in' ? 'inAngle' : port === 'out' ? 'outAngle' : 'out2Angle']*Math.PI/180;
     const dx=clean(Math.cos(angle)),dy=clean(Math.sin(angle));local=[TANK_PORT_RADIUS*dx,TANK_PORT_RADIUS*dy,dx,dy];
   } else if (node.type === 'pipe') {
     const length=Number.isFinite(node.length)?clamp(node.length,60,1600):160;
