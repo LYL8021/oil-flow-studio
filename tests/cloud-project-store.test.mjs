@@ -15,7 +15,7 @@ test('cloud client maps IDs, reads complete projects, and sends no cookies or lo
   const saved=await store.get('cloud:'+uuid.toUpperCase());
   assert.equal(saved.id,'cloud:'+uuid);assert.equal(saved.scope,'cloud');assert.deepEqual(saved.project,project);
   assert.notEqual(saved.project,project);saved.project.nodes[0].scale=1;assert.equal(project.nodes[0].scale,30);
-  assert.equal(calls[0].url,'https://oil-flow-feedback-8c41.sacredzebra19.chatgpt.site/api/drawings/'+uuid);
+  assert.equal(calls[0].url,'https://oil-flow-studio.lililinomj330223.workers.dev/api/drawings/'+uuid);
   assert.equal(calls[0].options.credentials,'omit');assert.equal(calls[0].options.cache,'no-store');
   assert.equal(calls[0].options.mode,'cors');
 });

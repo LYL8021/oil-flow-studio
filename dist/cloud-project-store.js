@@ -1,5 +1,5 @@
 // Cloud records remain remote; a failed request never substitutes browser-only data.
-const CLOUD_DRAWINGS_ORIGIN = 'https://oil-flow-feedback-8c41.sacredzebra19.chatgpt.site';
+const CLOUD_DRAWINGS_ORIGIN = 'https://oil-flow-studio.lililinomj330223.workers.dev';
 const CLOUD_DRAWING_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CLOUD_DRAWING_MAX_BYTES = 24 * 1024 * 1024;
 

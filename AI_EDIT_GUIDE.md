@@ -15,7 +15,7 @@
 
 這不是逐字即時同步。同時修改相同檔案可能需要處理合併衝突，請每項修改使用不同分支，保留彼此的工作。
 
-原 ChatGPT Sites 網址不會自動跟隨此程式庫更新；請使用接妥自動部署後的正式網址。正式網站的共用圖面使用獨立雲端服務跨電腦存取；本機圖面與工作草稿不自動上傳，也可用專案 JSON 分享。
+主網站使用 https://oil-flow-studio.vercel.app/；本版前端的共用服務網址設定為 https://oil-flow-studio.lililinomj330223.workers.dev 。後端使用專案擁有人帳號內的 Cloudflare Workers Free＋D1，透過 Cloudflare Builds 發布；圖面、底圖與歷史版本均在 D1 保存，不需要 R2、綁卡或付費升級。本機圖面與工作草稿不自動上傳，也可用專案 JSON 分享。此配置須經完整資料核對及跨瀏覽器驗證後才發布切換；舊 Sites 服務切換後僅作唯讀備份，日常部署在完成匯入標記後不再存取它。
 
 ## 檔案與命令
 
@@ -28,7 +28,7 @@
 - `dist/pdf-import.js`、`dist/vendor/pdf/`：瀏覽器內 PDF 選頁、轉向與渲染，內附 PDF.js 6.4.299 的 renderer、worker、CMap、字型、WASM 及授權；發布時完整保留，不使用外站處理私人 PDF。`dist/reference-layout.js` 接受 25%～1000% 的底圖縮放，最大尺寸 30000；底圖位置、元件與油管轉折點座標支援 ±40000，各處幾何與匯入檢查須一致。
 - `tests/`：通油與管線測試；`scripts/package-offline.py`：更新離線下載成品。
 - `dist/project-library.js`、`dist/cloud-project-store.js`：本機／共用圖面與歷史版本；更新必須檢查版本，衝突保留畫布，明確保存才分享。`dist/feedback.js`、`dist/feedback.css`：共用修改建議介面。
-- `server/`：匿名留言與共用圖面後端；自有 Cloudflare 僅使用 Workers Free＋D1，`d1-snapshots.js` 分段保存不可變圖面 JSON，無須 R2 或開通計費；原 Sites 保留既有 R2 相容。後端獨立於 Vercel 靜態部署，維護前先讀 `server/README.md`，保留既有資料庫、服務身分與已套用的遷移。
+- `server/`：匿名留言與共用圖面後端；Cloudflare Workers Free＋D1 透過 `d1-snapshots.js` 分段保存不可變圖面 JSON，無須 R2 或開通計費。修改共同來源後執行 `node server/cloudflare/refresh-source.mjs`，再檢查並提交部署副本；Cloudflare Builds 使用 `server/cloudflare` 目錄及 `npm run deploy:bootstrap`。後端獨立於 Vercel 靜態部署，維護前先讀 `server/README.md`，保留既有 D1、服務身分及已套用遷移。原 Sites 的 R2 路徑僅作舊服務相容。
 
 在專案根目錄執行：
 

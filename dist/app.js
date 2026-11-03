@@ -16,7 +16,7 @@ import {createBlankDrawing,applyReference} from './drawing-actions.js?v=drawing-
 import {normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode} from './source-settings.js?v=source-1';
 import {pipeBorderDashes} from './pipe-visuals.js?v=joins-1';
 import {setupPipeEndpointDrag} from './pipe-magnets.js?v=short-nozzles-1';
-import {setupProjectLibrary} from './project-library.js?v=cloud-1';
+import {setupProjectLibrary} from './project-library.js?v=cloud-2';
 import {normalizeOperations} from './operations.js?v=source-ops-1';
 import {setupOperationPanel} from './operation-panel.js?v=cloud-1';
 
@@ -620,6 +620,6 @@ async function offerLinkedDraft(){
 window.addEventListener('hashchange',offerLinkedDraft);
 let loaded=false,workingProjectContext=null;try{const raw=localStorage.getItem(STORAGE);if(raw){const parsed=JSON.parse(raw);state=validateProject(parsed);workingProjectContext=parsed._savedDrawing;loaded=true;}}catch{}if(!loaded)state=sample();setMode('sim');if(loaded)projectLibrary.restore(workingProjectContext);
 const resizeObserver=new ResizeObserver(()=>{applyView();});resizeObserver.observe($('canvasWrap'));requestAnimationFrame(fit);offerLinkedDraft();
-setupFeedback({apiBase:'https://oil-flow-feedback-8c41.sacredzebra19.chatgpt.site',notify});
+setupFeedback({apiBase:'https://oil-flow-studio.lililinomj330223.workers.dev',notify});
 // Expose serializable diagnostics for local QA without changing project data.
 window.oilFlowDiagnostics=()=>({nodes:state.nodes.length,edges:state.edges.length,activeEdges:flow.activeEdges.size,activePorts:[...flow.activePorts],edgeFuels:Object.fromEntries([...flow.activeEdgeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),nodeTypes:Object.fromEntries(state.nodes.map(n=>[n.id,n.type])),nodeFuels:Object.fromEntries([...flow.activeNodeFuels].map(([id,fuels])=>[id,[...fuels].sort()])),pipeKinds:Object.fromEntries(state.edges.map(e=>[e.id,e.kind||'normal'])),edgeRoutes:Object.fromEntries(state.edges.map(e=>[e.id,{routing:e.routing||'orthogonal',waypoints:(e.waypoints||[]).map(p=>({...p}))}])),edgeDirections:Object.fromEntries(flow.edgeDirections),nodeDirections:Object.fromEntries(flow.nodeDirections),nodeGeometry:Object.fromEntries(state.nodes.map(n=>[n.id,{x:n.x,y:n.y,rotation:n.rotation||0,scale:nodeScale(n),...(n.type==='tank'?{...normalizeTankPorts(n),portModes:normalizeTankPortModes(n)}:{}),...(n.type==='ground'?{flowMode:normalizeGroundMode(n)}:{}),ports:Object.fromEntries((types[n.type].ports||[]).map(p=>[p,portInfo(n,p)]))}])),selected:selected?{...selected}:null,view:{...view},newRouting,draftWaypointCount:draftWaypoints.length,mode,tool,effectiveTool:$('canvas').dataset.tool,pendingPort:pendingPort?{...pendingPort}:null});
