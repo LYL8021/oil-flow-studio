@@ -22,6 +22,7 @@
 - 動畫方向由每個啟用油源的接點距離判斷，與拉管順序無關；多源方向衝突或等距時只顯示通油顏色。關閉閥門本體保持灰色，上游管線與接點仍依可達油源顯色。
 - 「修改建議」與「共用圖面」使用免登入的雲端服務；本機圖面與工作草稿仍留在個別瀏覽器，僅明確儲存共用圖面時上傳。前端 `dist/feedback.js`、`dist/cloud-project-store.js` 與 `dist/project-library.js`；後端維護與部署見 `server/README.md`，不可改用 localStorage 假裝共用或把維護金鑰放入前端。
 - 共用圖面使用 D1 存名稱、版本及歷史索引，R2 存完整元件／油管／底圖／作業快照。更新須帶 expectedRevision，409 衝突保留目前畫布並提供另存；requestId 讓重試不重複新增。不得靜默覆蓋其他人的版本或自動上傳本機存檔。閥門操作僅本機生效，明確儲存作業後才更新共用配置；復原歷史版本先載入畫布，明確儲存才建立新版。
+- `server/cloudflare/` 是可獨立部署至擁有人 Cloudflare 帳號的後端副本；共同來源仍是 `server/feedback-worker.js`／`drawings-worker.js`，變更後先執行 `node server/cloudflare/refresh-source.mjs` 並驗證打包。已有遷移不可改寫。資料搬移須保留 ID、時間、所有版本及底圖，私有備份存於程式庫之外；先備份、暫停來源寫入、匯入並核對目標，最後才切換前端。準備好部署檔不代表已搬移，未驗證前不得切換或停用舊服務。
 
 - `component-labels.js` 統一旋轉／縮放後編號及作業徽章排位；編號16px粗體，SVG匯出須保留paint-order。出／入土端的實際接點為±16，畫法與 `component-geometry.js` 須一致。
 - `component-clipboard.js` 的元件／油管複製貼上需新ID、非空編號唯一，不複製原接管或自動接通重疊管線。編修模式啟用Ctrl/Command+C/V，文字欄位與對話框保留原本行為。點元件庫新增以目前view中心精確擺放；拖曳新增沿用指定落點。
