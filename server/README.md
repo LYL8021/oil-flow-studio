@@ -1,5 +1,11 @@
 # 共用修改建議與圖面服務
 
+## 搬到自己的 Cloudflare
+
+已提供可獨立部署的 [Cloudflare 後端](cloudflare/README.md)，含一鍵部署按鈕、D1 遷移與 R2 綁定。完整資料搬移工具與核對順序見 [CLOUD_MIGRATION.md](../scripts/CLOUD_MIGRATION.md)。
+
+這些檔案只代表搬移準備完成。取得自己帳號的實際 Worker 網址、保留全部圖面與歷史留言、確認資料核對與跨瀏覽器測試通過後，才修改前端服務網址；目前正式前端仍連原服務。本機圖面不在此搬移範圍，不會自動上傳。Cloudflare 與 Vercel 各依帳號方案運作，不保證永久免費。
+
 主網站維持 https://oil-flow-studio.vercel.app/ ，前端在 `dist/feedback.js`，由 `dist/app.js` 的 `setupFeedback` 指定服務網址：
 
 https://oil-flow-feedback-8c41.sacredzebra19.chatgpt.site
