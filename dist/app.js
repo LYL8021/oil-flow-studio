@@ -99,7 +99,7 @@ const fluidText=fuels=>fuels?.size>1?(fuels.size>2?'三油源連通':'雙油源�
 const pipeKinds={normal:'一般油管',bridge:'跨管',underground:'地下管'};
 const pipeKindOptions=value=>Object.entries(pipeKinds).map(([key,name])=>`<option value="${key}" ${value===key?'selected':''}>${name}</option>`).join('');
 const STORAGE='oil-flow-studio-v1';
-let state={nodes:[],edges:[]},history=[],future=[],selected=null,mode='sim',tool='select',canvasPointer=null,newPipeKind='normal',newRouting='orthogonal',grid=true,pendingPort=null,draftWaypoints=[],draftPointer=null,selectedWaypoint=null,view={x:0,y:0,w:1200,h:720},drag=null,toastTimer,saveTimer,storageAvailable=true;
+let state={nodes:[],edges:[]},history=[],future=[],selected=null,mode='sim',tool='select',canvasPointer=null,hoveredPipe=null,newPipeKind='normal',newRouting='orthogonal',grid=true,pendingPort=null,draftWaypoints=[],draftPointer=null,selectedWaypoint=null,view={x:0,y:0,w:1200,h:720},drag=null,toastTimer,saveTimer,storageAvailable=true;
 let projectLibrary=null,operationPanel=null,transformControls=null,pipeEndpointDrag=null,componentClipboard=null,pasteSequence=0;
 let flow={activeEdges:new Set(),activeNodes:new Set(),activePorts:new Set(),activeEdgeFuels:new Map(),activeNodeFuels:new Map(),activePortFuels:new Map(),edgeDirections:new Map(),nodeDirections:new Map()};
 const clone=v=>JSON.parse(JSON.stringify(v));
@@ -147,7 +147,7 @@ function canvasAction(target){
  if(drag?.kind==='node'||drag?.kind==='waypoint')return 'select';
  if(pendingPort)return 'pipe';
  if(target?.closest('[data-toggle]'))return 'toggle';
- if(target?.closest('[data-port]'))return 'pipe';
+ if(target?.closest('[data-port],[data-bend-port]'))return 'pipe';
  if(tool==='pipe'&&target?.closest('[data-edge]'))return 'pipe';
  if(target?.closest('[data-node],[data-edge],[data-waypoint]'))return 'select';
  return tool;
@@ -159,7 +159,7 @@ function updateCanvasIntent(target){
  $('finishPipeBtn').hidden=!pendingPort;$('finishPipeBtn').disabled=!draftWaypoints.length;
  canvas.dataset.tool=effectiveTool;canvas.dataset.action=action;canvas.dataset.connecting=String(!!pendingPort);canvas.dataset.dragging=String(!!drag&&drag.kind!=='sim');
  for(const t of ['select','pipe','hand']){const button=$(t+'Tool');button.classList.toggle('active',t===effectiveTool);button.setAttribute('aria-pressed',String(t===effectiveTool));}
- const hint=action==='hand'?'拖曳畫布平移 · V 回到選取':mode==='sim'?'點擊閥門本體，即可切換開關':pendingPort?(newRouting==='free'?'連續畫管：點擊加轉折 · 右鍵結束 · Esc 取消':'直角畫管：點擊加轉折 · 右鍵結束 · Esc 取消'):action==='toggle'?'點擊切換閥門開關':action==='pipe'?'點空白處開始畫管，或點接點／管線建立分支':'拖曳元件移動 · 點接點接管 · C 連續畫管';
+ const hint=action==='hand'?'拖曳畫布平移 · V 回到選取':mode==='sim'?'點擊閥門本體，即可切換開關':pendingPort?(newRouting==='free'?'連續畫管：點擊加轉折 · 右鍵結束 · Esc 取消':'直角畫管：點擊加轉折 · 右鍵結束 · Esc 取消'):action==='toggle'?'點擊切換閥門開關':action==='pipe'?(target?.closest('[data-bend-port]')?'點轉折中心接出分支 · 外圈拖曳調整位置':'點空白處開始畫管，或點接點／管線建立分支'):target?.closest('[data-waypoint]')?'拖曳轉折外圈調整 · 點中心接出分支':'拖曳元件移動 · 點接點接管 · C 連續畫管';
  const html=`<span class="hint-dot"></span>${hint}`;if($('modeHint').innerHTML!==html)$('modeHint').innerHTML=html;
 }
 function routingHint(){updateCanvasIntent();}
@@ -218,17 +218,45 @@ function finishPipe(target){
 $('finishPipeBtn').onclick=()=>finishPipe();
 $('startPipeBtn').onclick=()=>{if(mode==='edit'){setTool('pipe');notify('點畫布或接點開始畫管，沿途點轉折，右鍵結束');}};
 
+function editableWaypoints(edge){return edge.routing==='free'?edge.waypoints||[]:edgePoints(edge).slice(1,-1).map(p=>({x:p.x,y:p.y}));}
+function bendTarget(owner,index){
+ const edge=state.edges.find(e=>e.id===owner),p=edge&&editableWaypoints(edge)[index];
+ return p?{edge:edge.id,point:{x:p.x,y:p.y},path:edgePoints(edge)}:null;
+}
+function connectBend(handle){
+ const target=bendTarget(handle.dataset.bendOwner,Number(handle.dataset.bendPort));if(!target)return;
+ if(pendingPort){finishPipe(target);return;}
+ selected={kind:'edge',id:target.edge};beginPipe(target);
+}
+function hoverPipe(target){
+ const handle=target?.closest('[data-bend-owner],[data-waypoint-owner]'),edge=target?.closest('[data-edge]');
+ const owner=handle?.dataset.bendOwner||handle?.dataset.waypointOwner||edge?.dataset.edge||null;
+ if(owner===hoveredPipe)return false;hoveredPipe=owner;renderWaypoints();return true;
+}
 function renderWaypoints(){
- const edge=mode==='edit'&&!pendingPort&&selected?.kind==='edge'?state.edges.find(e=>e.id===selected.id&&e.routing==='free'):null;
- if(!edge){selectedWaypoint=null;$('waypointLayer').innerHTML='';return;}
- if(selectedWaypoint&&(selectedWaypoint.edge!==edge.id||selectedWaypoint.index>=(edge.waypoints||[]).length))selectedWaypoint=null;
- $('waypointLayer').innerHTML=(edge.waypoints||[]).map((p,index)=>`<circle class="waypoint-handle ${selectedWaypoint?.edge===edge.id&&selectedWaypoint.index===index?'selected':''}" data-waypoint="${index}" data-waypoint-owner="${edge.id}" cx="${p.x}" cy="${p.y}" r="${selectedWaypoint?.edge===edge.id&&selectedWaypoint.index===index?7:6}" fill="var(--diagram-surface)" stroke="var(--orange)" stroke-width="2" tabindex="0" role="button" aria-label="油管轉折點 ${index+1}，拖曳調整，Delete 刪除"><title>拖曳調整轉折點；選取後按 Delete 刪除</title></circle>`).join('');
+ if(mode!=='edit'){selectedWaypoint=null;$('waypointLayer').innerHTML='';return;}
+ if(selectedWaypoint){const edge=state.edges.find(e=>e.id===selectedWaypoint.edge);if(!edge||!editableWaypoints(edge)[selectedWaypoint.index])selectedWaypoint=null;}
+ const owners=[...new Set([hoveredPipe,selected?.kind==='edge'?selected.id:null].filter(Boolean))];
+ const matrix=$('canvas').getScreenCTM(),scale=matrix?Math.hypot(matrix.a,matrix.b):1;
+ const ringRadius=11/(scale||1),portRadius=4.5/(scale||1);
+ $('waypointLayer').innerHTML=owners.map(owner=>{
+  const edge=state.edges.find(e=>e.id===owner);if(!edge)return '';
+  const path=edgePoints(edge),points=editableWaypoints(edge);
+  return points.map((p,index)=>{
+   if(edge.routing!=='free'){
+    const pathIndex=index+1,previous=path.slice(0,pathIndex).reverse().find(q=>Math.hypot(q.x-p.x,q.y-p.y)>.01),next=path.slice(pathIndex+1).find(q=>Math.hypot(q.x-p.x,q.y-p.y)>.01);
+    if(!previous||!next||Math.abs((p.x-previous.x)*(next.y-p.y)-(p.y-previous.y)*(next.x-p.x))<.01)return '';
+   }
+   const isSelected=selectedWaypoint?.edge===edge.id&&selectedWaypoint.index===index;
+   return `<g class="pipe-bend ${isSelected?'selected':''}"><circle class="waypoint-handle" data-waypoint="${index}" data-waypoint-owner="${edge.id}" cx="${p.x}" cy="${p.y}" r="${ringRadius}" tabindex="0" role="button" aria-label="油管轉折點 ${index+1} 外圈，拖曳調整，Delete 刪除"><title>外圈拖曳調整轉折；選取後按 Delete 刪除</title></circle><circle class="bend-port ${pendingPort?.edge===edge.id&&Math.hypot(pendingPort.point.x-p.x,pendingPort.point.y-p.y)<.01?'pending':''}" data-bend-port="${index}" data-bend-owner="${edge.id}" cx="${p.x}" cy="${p.y}" r="${portRadius}" tabindex="0" role="button" aria-label="油管轉折點 ${index+1} 中心，點擊接出或接上分支"><title>點中心接出／接上分支；外圈拖曳調整</title></circle></g>`;
+  }).join('');
+ }).join('');
 }
 function removeWaypoint(){
  if(mode==='sim'||!selectedWaypoint)return false;
  const edge=state.edges.find(e=>e.id===selectedWaypoint.edge),index=selectedWaypoint.index;
- if(!edge||edge.routing!=='free'||!edge.waypoints?.[index])return false;
- change(()=>{edge.waypoints.splice(index,1);selectedWaypoint=null;});return true;
+ if(!edge||!editableWaypoints(edge)[index])return false;
+ change(()=>{edge.waypoints=editableWaypoints(edge);edge.routing='free';edge.waypoints.splice(index,1);selectedWaypoint=null;});return true;
 }
 function addWaypoint(edge){
  if(mode==='sim'||edge.routing!=='free')return;
@@ -339,7 +367,7 @@ function renderInspector(){
  $('propertyRotate').onclick=rotateSelected;$('propertyDelete').onclick=deleteSelected;
  }else if(e){
  const a=nodeById(e.from.node),b=nodeById(e.to.node);
- $('inspectorContent').innerHTML=`<div class="selected-type"><span class="component-icon">${icon('pipe')}</span><div><strong>連接油管</strong><small>${esc(e.id)}</small></div></div>${pipeOrderControls()}<label class="field"><span>管線型式</span><select id="edgeKind" class="fuel-select" aria-label="管線型式" ${mode==='sim'?'disabled':''}>${pipeKindOptions(e.kind||'normal')}</select></label><label class="field"><span>接管方式</span><select id="edgeRouting" class="fuel-select" aria-label="接管方式" ${mode==='sim'?'disabled':''}><option value="orthogonal" ${e.routing!=='free'?'selected':''}>直角接管</option><option value="free" ${e.routing==='free'?'selected':''}>自由斜走</option></select></label>${e.routing==='free'?`<div class="property-actions"><button id="addWaypoint" class="button secondary" ${mode==='sim'?'disabled':''}>＋ 新增轉折</button><button id="removeWaypoint" class="button secondary" ${mode==='sim'||selectedWaypoint?.edge!==e.id?'disabled':''}>刪除轉折</button></div><p class="connection-detail">${(e.waypoints||[]).length} 個轉折點 · 拖曳橘色圓點可調整，選取後按 Delete 刪除。</p>`:''}<div class="section-title">起點元件</div><div class="connection-detail">${esc(a?.name)} / ${e.from.port}</div><div class="section-title">終點元件</div><div class="connection-detail">${esc(b?.name)} / ${e.to.port}</div><div class="property-state"><span>連通狀態</span><strong style="font-size:11px;color:${fluidColor(flow.activeEdgeFuels.get(e.id))}">${flow.activeEdges.has(e.id)?'● '+fluidText(flow.activeEdgeFuels.get(e.id)):'○ 未通油'}</strong></div><div class="property-actions"><button id="propertyDelete" class="button secondary" ${mode==='sim'?'disabled':''}>${icon('trash')}刪除此油管</button></div><div class="flow-note"><div class="flow-note-title">${icon('info')}油管交叉</div><p>跨管在交叉處畫拱橋，地下管以虛線表示。管線交叉互不相通；需要相通時，在畫管模式點既有管線建立分支。顯示層級與型式不改變通斷判斷。</p></div>`;$('propertyDelete').onclick=deleteSelected;$('edgeKind').onchange=ev=>{const kind=ev.target.value;change(()=>e.kind=Object.hasOwn(pipeKinds,kind)?kind:'normal');};$('edgeRouting').onchange=ev=>{const routing=ev.target.value;change(()=>{e.routing=routing==='free'?'free':'orthogonal';e.waypoints||=[];selectedWaypoint=null;});};if($('addWaypoint'))$('addWaypoint').onclick=()=>addWaypoint(e);if($('removeWaypoint'))$('removeWaypoint').onclick=removeWaypoint;
+ $('inspectorContent').innerHTML=`<div class="selected-type"><span class="component-icon">${icon('pipe')}</span><div><strong>連接油管</strong><small>${esc(e.id)}</small></div></div>${pipeOrderControls()}<label class="field"><span>管線型式</span><select id="edgeKind" class="fuel-select" aria-label="管線型式" ${mode==='sim'?'disabled':''}>${pipeKindOptions(e.kind||'normal')}</select></label><label class="field"><span>接管方式</span><select id="edgeRouting" class="fuel-select" aria-label="接管方式" ${mode==='sim'?'disabled':''}><option value="orthogonal" ${e.routing!=='free'?'selected':''}>直角接管</option><option value="free" ${e.routing==='free'?'selected':''}>自由斜走</option></select></label>${e.routing==='free'?`<div class="property-actions"><button id="addWaypoint" class="button secondary" ${mode==='sim'?'disabled':''}>＋ 新增轉折</button><button id="removeWaypoint" class="button secondary" ${mode==='sim'||selectedWaypoint?.edge!==e.id?'disabled':''}>刪除轉折</button></div><p class="connection-detail">${(e.waypoints||[]).length} 個轉折點 · 點轉折中心接分支，拖曳外圈調整；選取外圈後按 Delete 刪除。</p>`:''}<div class="section-title">起點元件</div><div class="connection-detail">${esc(a?.name)} / ${e.from.port}</div><div class="section-title">終點元件</div><div class="connection-detail">${esc(b?.name)} / ${e.to.port}</div><div class="property-state"><span>連通狀態</span><strong style="font-size:11px;color:${fluidColor(flow.activeEdgeFuels.get(e.id))}">${flow.activeEdges.has(e.id)?'● '+fluidText(flow.activeEdgeFuels.get(e.id)):'○ 未通油'}</strong></div><div class="property-actions"><button id="propertyDelete" class="button secondary" ${mode==='sim'?'disabled':''}>${icon('trash')}刪除此油管</button></div><div class="flow-note"><div class="flow-note-title">${icon('info')}油管交叉</div><p>跨管在交叉處畫拱橋，地下管以虛線表示。管線交叉互不相通；需要相通時，在畫管模式點既有管線建立分支。顯示層級與型式不改變通斷判斷。</p></div>`;$('propertyDelete').onclick=deleteSelected;$('edgeKind').onchange=ev=>{const kind=ev.target.value;change(()=>e.kind=Object.hasOwn(pipeKinds,kind)?kind:'normal');};$('edgeRouting').onchange=ev=>{const routing=ev.target.value;change(()=>{e.routing=routing==='free'?'free':'orthogonal';e.waypoints||=[];selectedWaypoint=null;});};if($('addWaypoint'))$('addWaypoint').onclick=()=>addWaypoint(e);if($('removeWaypoint'))$('removeWaypoint').onclick=removeWaypoint;
  }else{
  const valves=state.nodes.filter(n=>n.type==='valve'),open=valves.filter(n=>n.open).length;
  $('inspectorContent').innerHTML=`<div class="overview-status"><span class="live-dot"></span><div><strong>即時模擬運作中</strong><small>每次開關，自動更新通油範圍</small></div></div><div class="metrics"><div class="metric"><span>通油管路</span><strong class="orange">${flow.activeEdges.size}<small>/ ${state.edges.length}</small></strong></div><div class="metric"><span>開啟閥門</span><strong>${open}<small>/ ${valves.length}</small></strong></div><div class="metric"><span>元件總數</span><strong>${state.nodes.length}<small>個</small></strong></div><div class="metric"><span>供油來源</span><strong>${state.nodes.filter(n=>isFuelSource(n)&&sourceEnabled(n)).length}<small>處</small></strong></div></div><div class="section-title">油品來源<span>OIL SOURCES</span></div><div class="source-list">${state.nodes.filter(isFuelSource).map(n=>`<div class="source-row"><button class="fuel-label source-select" data-select="${n.id}" title="設定接管口用途或端點狀態"><i class="fuel-dot ${normalizeFuel(n.fuel)}"></i><span>${esc(n.code||n.name||types[n.type].name)}<small class="source-mode-summary">${sourceDescription(n)}</small></span></button><select class="fuel-select" id="source-${n.id}" data-source-fuel="${n.id}" aria-label="${esc(n.name)}油品" ${mode==='sim'?'disabled':''}>${fuelOptions(n.fuel,true)}</select></div>`).join('')||'<p class="connection-detail">新增油槽或出土端後可設定油品。</p>'}</div>${[...flow.activeEdgeFuels.values()].some(f=>f.size>1)?'<p class="fuel-label mixed-note">多色管線：多種油源同時連通，未計算混油比例。</p>':''}<div class="section-title">閥門控制<span>${valves.length.toString().padStart(2,'0')} VALVES</span></div><div class="valve-list">${valves.length?valves.map(n=>`<div class="valve-row"><button class="valve-name" data-select="${n.id}" title="選取${esc(n.name)}">${icon('valve')}<span>${esc(n.name)}</span></button><span class="valve-state ${n.open?'on':''}">${n.open?'開啟':'關閉'}</span><button class="switch ${n.open?'on':''}" data-switch="${n.id}" role="switch" aria-checked="${!!n.open}" aria-label="${esc(n.name)}開關"></button></div>`).join(''):'<p class="connection-detail">加入閥門，即可在這裡控制。</p>'}</div><div class="flow-note"><div class="flow-note-title">${icon('spark')}試著關閉主供油閥</div><p>看看橘色油路如何變化。重新開啟閥門，連通的管路就會恢復顏色。</p></div>`;
@@ -355,7 +383,7 @@ function rotateSelected(){if(mode==='sim')return;const n=selected?.kind==='node'
 function deleteSelected(){if(!selected||mode==='sim')return;const s=selected;change(()=>{if(s.kind==='node'){state.nodes=state.nodes.filter(n=>n.id!==s.id);state.edges=state.edges.filter(e=>e.from.node!==s.id&&e.to.node!==s.id);}else state.edges=state.edges.filter(e=>e.id!==s.id);selected=null;selectedWaypoint=null;clearDraft();});}
 function setTool(value){tool=value;clearDraft();selectedWaypoint=null;renderGraph();}
 function setMode(value){pipeEndpointDrag?.cancel();transformControls?.cancel();mode=value;document.body.dataset.workspace=mode==='sim'?'operate':'edit';selected=null;$('editMode').classList.toggle('active',mode==='edit');$('simMode').classList.toggle('active',mode==='sim');$('editMode').setAttribute('aria-pressed',String(mode==='edit'));$('simMode').setAttribute('aria-pressed',String(mode==='sim'));$('newPipeKind').disabled=mode==='sim';$('freeRouteBtn').disabled=mode==='sim';document.querySelectorAll('.component-card').forEach(el=>{el.draggable=mode==='edit';el.disabled=mode==='sim';});setTool('select');render();if(mode==='sim')notify('作業模式：可選作業或調整閥門，管線與元件位置已鎖定');}
-function applyView(){const box=$('canvasWrap').getBoundingClientRect();if(!box.width||!box.height)return;view.h=view.w*box.height/box.width;$('canvas').setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);$('zoomValue').textContent=Math.round(1200/view.w*100)+'%';transformControls?.render();}
+function applyView(){const box=$('canvasWrap').getBoundingClientRect();if(!box.width||!box.height)return;view.h=view.w*box.height/box.width;$('canvas').setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);$('zoomValue').textContent=Math.round(1200/view.w*100)+'%';renderWaypoints();transformControls?.render();}
 function fit(){
  const box=$('canvasWrap').getBoundingClientRect(),ratio=box.width/box.height;if(!ratio)return;
  if(!state.nodes.length&&!state.reference){view={x:0,y:0,w:1200,h:1200/ratio};applyView();return;}
@@ -389,20 +417,22 @@ svg.addEventListener('pointerdown',ev=>{
  canvasPointer=ev.pointerType==='touch'?null:{x:ev.clientX,y:ev.clientY};const p=point(ev);
  // Explicit panning takes priority over every interactive item, including ports.
  if(tool==='hand'||ev.button===1){ev.preventDefault();drag={kind:'pan',clientX:ev.clientX,clientY:ev.clientY,startX:view.x,startY:view.y};svg.setPointerCapture(ev.pointerId);updateCanvasIntent(ev.target);return;}
- const port=ev.target.closest('[data-port]');
+ const port=ev.target.closest('[data-port]'),bendPort=ev.target.closest('[data-bend-port]');
  // A started connection stays active until an endpoint, Esc, or an explicit tool change.
  if(mode==='edit'&&pendingPort){
   ev.preventDefault();
   if(port){connectPort(port.dataset.owner,port.dataset.port);return;}
+  if(bendPort){connectBend(bendPort);return;}
   const pipe=ev.target.closest('[data-edge]');
   if(pipe){const target=pipeTarget(pipe.dataset.edge,p);if(target)finishPipe(target);return;}
   if(!ev.target.closest('[data-node],[data-waypoint]'))addPipeBend({x:p.x,y:p.y,altKey:ev.altKey});
   updateCanvasIntent(ev.target);return;
  }
+ if(bendPort&&mode==='edit'){ev.preventDefault();connectBend(bendPort);return;}
  const handle=ev.target.closest('[data-waypoint]');
  if(handle&&mode==='edit'){
-  ev.preventDefault();const edge=state.edges.find(e=>e.id===handle.dataset.waypointOwner),index=Number(handle.dataset.waypoint),pos=point(ev);if(!edge?.waypoints?.[index])return;
-  selected={kind:'edge',id:edge.id};selectedWaypoint={edge:edge.id,index};tool='select';drag={kind:'waypoint',edge:edge.id,index,startX:pos.x,startY:pos.y,x:edge.waypoints[index].x,y:edge.waypoints[index].y,moved:false};svg.setPointerCapture(ev.pointerId);render();return;
+  ev.preventDefault();const edge=state.edges.find(e=>e.id===handle.dataset.waypointOwner),index=Number(handle.dataset.waypoint),pos=point(ev),waypoints=edge&&editableWaypoints(edge),p=waypoints?.[index];if(!p)return;
+  selected={kind:'edge',id:edge.id};selectedWaypoint={edge:edge.id,index};tool='select';drag={kind:'waypoint',edge:edge.id,index,waypoints,startX:pos.x,startY:pos.y,x:p.x,y:p.y,moved:false};svg.setPointerCapture(ev.pointerId);render();return;
  }
  const toggle=ev.target.closest('[data-toggle]');if(toggle){ev.preventDefault();toggleValve(toggle.dataset.toggle);return;}
  if(port&&mode==='edit'){ev.preventDefault();connectPort(port.dataset.owner,port.dataset.port);return;}
@@ -419,11 +449,11 @@ svg.addEventListener('pointerdown',ev=>{
 });
 svg.addEventListener('pointermove',ev=>{
  canvasPointer=ev.pointerType==='touch'?null:{x:ev.clientX,y:ev.clientY};const p=point(ev);
- if(!drag){if(pendingPort)updateDraft(p);updateCanvasIntent(ev.target);return;}
+ if(!drag){if(pendingPort)updateDraft(p);const changed=hoverPipe(ev.target);updateCanvasIntent(changed?null:ev.target);return;}
  if(drag.kind==='pan'){const r=svg.getBoundingClientRect();view.x=drag.startX-(ev.clientX-drag.clientX)*view.w/r.width;view.y=drag.startY-(ev.clientY-drag.clientY)*view.h/r.height;applyView();if(pendingPort)updateDraft(point(ev));}
  if(drag.kind==='waypoint'){
-  const edge=state.edges.find(e=>e.id===drag.edge);if(!edge?.waypoints?.[drag.index]){drag=null;return;}
-  const dx=p.x-drag.startX,dy=p.y-drag.startY;if(!drag.moved&&Math.hypot(dx,dy)>3){remember();drag.moved=true;}
+  const edge=state.edges.find(e=>e.id===drag.edge);if(!edge||!drag.waypoints?.[drag.index]){drag=null;return;}
+  const dx=p.x-drag.startX,dy=p.y-drag.startY;if(!drag.moved&&Math.hypot(dx,dy)>3){remember();edge.waypoints=drag.waypoints.map(p=>({...p}));edge.routing='free';drag.moved=true;}
   if(drag.moved){edge.waypoints[drag.index]={x:Math.max(-40000,Math.min(40000,ev.altKey?Math.round(drag.x+dx):snap(drag.x+dx))),y:Math.max(-40000,Math.min(40000,ev.altKey?Math.round(drag.y+dy):snap(drag.y+dy)))};renderGraph();}
  }
  if(drag.kind==='node'){
@@ -441,11 +471,11 @@ function endDrag(ev){
 }
 svg.addEventListener('pointerup',endDrag);
 svg.addEventListener('pointercancel',ev=>{if((drag?.kind==='node'||drag?.kind==='waypoint')&&drag.moved){render();persist();}drag=null;canvasPointer=null;updateCanvasIntent();});
-svg.addEventListener('pointerleave',()=>{canvasPointer=null;updateCanvasIntent();});
+svg.addEventListener('pointerleave',()=>{canvasPointer=null;if(!drag&&hoveredPipe){hoveredPipe=null;renderWaypoints();}updateCanvasIntent();});
 svg.addEventListener('dblclick',ev=>{if(mode==='sim'||pendingPort||tool==='hand')return;const n=ev.target.closest('[data-node]');if(n&&!ev.target.closest('[data-toggle]'))toggleValve(n.dataset.node);});
 svg.addEventListener('contextmenu',ev=>{if(mode==='edit'&&pendingPort){ev.preventDefault();finishPipe();}});
 svg.addEventListener('wheel',ev=>{ev.preventDefault();zoom(ev.deltaY>0?1.09:1/1.09,point(ev));},{passive:false});
-svg.addEventListener('keydown',ev=>{if(ev.key!=='Enter'&&ev.key!==' ')return;if(pendingPort&&!ev.target.closest('[data-port]')){ev.preventDefault();return;}const handle=ev.target.closest('[data-waypoint]');if(handle&&mode==='edit'){ev.preventDefault();selected={kind:'edge',id:handle.dataset.waypointOwner};selectedWaypoint={edge:handle.dataset.waypointOwner,index:Number(handle.dataset.waypoint)};render();return;}const port=ev.target.closest('[data-port]'),toggle=ev.target.closest('[data-toggle]'),node=ev.target.closest('[data-node]'),edge=ev.target.closest('[data-edge]');ev.preventDefault();if(port)connectPort(port.dataset.owner,port.dataset.port);else if(toggle)toggleValve(toggle.dataset.toggle);else if(node){selectedWaypoint=null;selected={kind:'node',id:node.dataset.node};if(mode==='sim')toggleValve(node.dataset.node);else render();}else if(edge){selectedWaypoint=null;selected={kind:'edge',id:edge.dataset.edge};render();}});
+svg.addEventListener('keydown',ev=>{if(ev.key!=='Enter'&&ev.key!==' ')return;if(pendingPort&&!ev.target.closest('[data-port],[data-bend-port]')){ev.preventDefault();return;}const bendPort=ev.target.closest('[data-bend-port]');if(bendPort&&mode==='edit'&&tool!=='hand'){ev.preventDefault();connectBend(bendPort);return;}const handle=ev.target.closest('[data-waypoint]');if(handle&&mode==='edit'&&tool!=='hand'){ev.preventDefault();selected={kind:'edge',id:handle.dataset.waypointOwner};selectedWaypoint={edge:handle.dataset.waypointOwner,index:Number(handle.dataset.waypoint)};render();return;}const port=ev.target.closest('[data-port]'),toggle=ev.target.closest('[data-toggle]'),node=ev.target.closest('[data-node]'),edge=ev.target.closest('[data-edge]');ev.preventDefault();if(port)connectPort(port.dataset.owner,port.dataset.port);else if(toggle)toggleValve(toggle.dataset.toggle);else if(node){selectedWaypoint=null;selected={kind:'node',id:node.dataset.node};if(mode==='sim')toggleValve(node.dataset.node);else render();}else if(edge){selectedWaypoint=null;selected={kind:'edge',id:edge.dataset.edge};render();}});
 document.querySelectorAll('[data-component]').forEach(el=>{el.addEventListener('dragstart',ev=>{ev.dataTransfer.setData('application/oil-component',el.dataset.component);ev.dataTransfer.setData('application/oil-variant',el.dataset.variant||'');ev.dataTransfer.effectAllowed='copy';});el.onclick=()=>{addNode(el.dataset.component,{x:view.x+view.w/2,y:view.y+view.h/2},el.dataset.variant,true);};});
 $('canvasWrap').addEventListener('dragover',ev=>{ev.preventDefault();ev.dataTransfer.dropEffect='copy';});$('canvasWrap').addEventListener('drop',ev=>{ev.preventDefault();addNode(ev.dataTransfer.getData('application/oil-component'),point(ev),ev.dataTransfer.getData('application/oil-variant'));});
 for(const t of ['select','pipe','hand'])$(t+'Tool').onclick=()=>{if(mode==='sim'&&t==='pipe'){notify('請切換到編輯模式連接油管');return;}setTool(t);};

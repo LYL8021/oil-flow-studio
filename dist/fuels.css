@@ -175,8 +175,13 @@
 [data-theme="dark"] .node.selected .standalone-pipe > .pipe-border { stroke: #705139; }
 .route-toggle { flex-shrink: 0; border-radius: 5px; gap: 4px; padding: 6px; }
 .route-toggle.active { color: var(--orange); background: var(--orange-light); }
-#waypointLayer circle { fill: var(--diagram-surface); stroke: var(--orange); stroke-width: 2; cursor: move; pointer-events: all; }
-#waypointLayer circle:hover, #waypointLayer circle.selected { fill: var(--orange-light); stroke-width: 3; }
+#waypointLayer circle { vector-effect: non-scaling-stroke; pointer-events: all; }
+#waypointLayer .waypoint-handle { fill: var(--diagram-surface); fill-opacity: .85; stroke: var(--orange); stroke-opacity: .7; stroke-width: 1.5; cursor: grab; }
+#waypointLayer .waypoint-handle:hover, #waypointLayer .pipe-bend.selected .waypoint-handle, #waypointLayer .waypoint-handle:focus-visible { fill: var(--orange-light); fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; }
+#waypointLayer .bend-port { fill: var(--diagram-surface); stroke: var(--orange); stroke-width: 2; cursor: crosshair; }
+#waypointLayer .bend-port:hover, #waypointLayer .bend-port.pending, #waypointLayer .bend-port:focus-visible { fill: var(--orange); stroke-width: 2.5; }
+#canvas[data-tool="hand"] #waypointLayer circle { cursor: grab; }
+#canvas[data-tool="hand"][data-dragging="true"] #waypointLayer circle, #canvas[data-dragging="true"] #waypointLayer .waypoint-handle { cursor: grabbing; }
 #draftPoints circle { fill: var(--orange); stroke: var(--diagram-surface); stroke-width: 2; pointer-events: none; }
 .waypoint-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 16px; }
 .waypoint-actions .button { font-size: 10px; padding: 7px 10px; }
