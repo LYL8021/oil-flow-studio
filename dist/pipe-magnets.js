@@ -95,7 +95,7 @@ export function findMagneticPort(project,{position,sourceNodeId,otherNodeId,igno
 
 /** Only free pipe ends intercept dragging. A stationary click keeps the C workflow. */
 export function setupPipeEndpointDrag({svg,getMode,getProject,portInfo=componentPort,getPortNames,getPending=()=>null,
- onPreview=()=>{},onCommit=()=>{},onCancel=()=>{},onClick=()=>{},onStart=()=>{},notify=()=>{}}={}){
+ onPreview=()=>{},onCommit=()=>{},onCancel=()=>{},onClick=()=>{},onSelect=()=>{},onStart=()=>{},notify=()=>{}}={}){
  if(!svg||typeof getMode!=='function'||typeof getProject!=='function')throw new Error('管端磁吸尚未連接畫布');
  const namespace='http://www.w3.org/2000/svg';let layer=svg.querySelector('#pipeMagnetLayer');
  if(!layer){layer=document.createElementNS(namespace,'g');layer.id='pipeMagnetLayer';svg.append(layer);}
@@ -126,17 +126,18 @@ export function setupPipeEndpointDrag({svg,getMode,getProject,portInfo=component
  }
  svg.addEventListener('pointerdown',event=>{
   if(event.button!==0||getMode()!=='edit'||getPending())return;
-  const port=event.target.closest('[data-port]');if(!port)return;
-  const project=getProject(),info=sourceDescriptor(project,port.dataset.owner,port.dataset.port);if(!info)return;
+  const port=event.target.closest('[data-port]'),pointBody=event.target.closest('.joint-hit,.joint-dot');
+  const owner=port?.dataset.owner||pointBody?.closest('[data-node]')?.dataset.node;if(!owner)return;
+  const project=getProject(),info=sourceDescriptor(project,owner,port?.dataset.port||'joint');if(!info)return;
+  const anchor=portInfo(project.nodes.find(node=>node.id===info.nodeId),info.port),grab=world(event);if(!anchor)return;
   stop(event);cancel();onStart(info);
-  session={...info,original:magnetClone(project),pointerId:event.pointerId,clientX:event.clientX,clientY:event.clientY,previewed:false,moved:false,target:null,next:null};
+  session={...info,original:magnetClone(project),pointerId:event.pointerId,clientX:event.clientX,clientY:event.clientY,
+   offset:{x:grab.x-anchor.x,y:grab.y-anchor.y},connectOnClick:!!port,previewed:false,moved:false,target:null,next:null};
   svg.setPointerCapture(event.pointerId);
  },true);
- svg.addEventListener('pointermove',event=>{
-  if(!session||session.pointerId!==event.pointerId)return;stop(event);
-  if(getMode()!=='edit'||getPending()){cancel();return;}
+ function preview(event){
   if(!session.moved&&Math.hypot(event.clientX-session.clientX,event.clientY-session.clientY)<4)return;
-  session.moved=true;const position=world(event),p={x:magnetClamp(position.x),y:magnetClamp(position.y)};
+  session.moved=true;const position=world(event),p={x:magnetClamp(position.x-session.offset.x),y:magnetClamp(position.y-session.offset.y)};
   let target=findMagneticPort(session.original,{position:p,sourceNodeId:session.nodeId,otherNodeId:session.otherNodeId,
    ignoreEdgeId:session.edgeId,radius:14,screenScale:scale(),getPortNames});
   let next;
@@ -148,12 +149,19 @@ export function setupPipeEndpointDrag({svg,getMode,getProject,portInfo=component
     catch(error){if(!target)throw error;target=null;next=fitStandalonePipeEndpoint(session.original,{nodeId:session.nodeId,port:session.port,targetPosition:p}).project;}
    }
    session.target=target;session.next=next;session.previewed=true;onPreview(next);render();
-  }catch{session.target=null;render();}
+  }catch{session.target=null;session.next=null;session.previewed=false;render();}
+ }
+ svg.addEventListener('pointermove',event=>{
+  if(!session||session.pointerId!==event.pointerId)return;stop(event);
+  if(getMode()!=='edit'||getPending()){cancel();return;}
+  preview(event);
  },true);
  svg.addEventListener('pointerup',event=>{
   if(!session||session.pointerId!==event.pointerId)return;stop(event);
+  if(getMode()!=='edit'||getPending()){cancel();return;}
+  preview(event);
   const ended=session;session=null;release(ended.pointerId);clearHighlight();
-  if(!ended.moved){onClick(ended.nodeId,ended.port);return;}
+  if(!ended.moved){(ended.connectOnClick?onClick:onSelect)(ended.nodeId,ended.port);return;}
   if(!ended.previewed){onCancel(ended.original);notify('端點位置無效，請調整管長或放開位置');return;}
   try{
    let next=ended.next,edgeId;

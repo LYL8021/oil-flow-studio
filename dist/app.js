@@ -15,7 +15,7 @@ import {copyComponent,pasteComponent,copyPipeSegment,pastePipeSegment} from './c
 import {createBlankDrawing,applyReference} from './drawing-actions.js?v=drawing-1';
 import {tankPortCount,tankPortIds,normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode} from './source-settings.js?v=ports-3-1';
 import {pipeBorderDashes} from './pipe-visuals.js?v=joins-1';
-import {setupPipeEndpointDrag} from './pipe-magnets.js?v=ports-3-1';
+import {setupPipeEndpointDrag} from './pipe-magnets.js?v=magnet-2';
 import {setupProjectLibrary} from './project-library.js?v=ports-3-1';
 import {normalizeOperations} from './operations.js?v=ports-3-1';
 import {setupOperationPanel} from './operation-panel.js?v=ports-3-1';
@@ -411,7 +411,7 @@ function connectPort(owner,port){
 }
 const svg=$('canvas');svg.dataset.tool='select';
 transformControls=setupTransformControls({svg,getMode:()=>mode==='edit'&&!pendingPort&&tool!=='hand'?'edit':'sim',getSelected:()=>selected,getNode:nodeById,onBegin:()=>{const token={history:history.slice(),future:future.slice()};remember();clearDraft();return token;},onUpdate:()=>renderGraph(),onCommit:()=>{render();persist();},onCancel:(_node,token)=>{if(token){history=token.history;future=token.future;}render();}});
-pipeEndpointDrag=setupPipeEndpointDrag({svg,getMode:()=>mode==='edit'&&tool!=='hand'?'edit':'sim',getProject:()=>state,portInfo,getPortNames:n=>n.type==='valve'&&n.variant==='riser'?['center']:nodePorts(n),getPending:()=>pendingPort,onStart:()=>{clearTimeout(saveTimer);transformControls?.cancel();},onPreview:next=>{state=next;renderGraph();},onCommit:(original,next,info)=>{history.push(clone(original));if(history.length>70)history.shift();future=[];state=next;selected=info.kind==='pipe'?{kind:'node',id:info.nodeId}:{kind:'edge',id:info.edgeId};selectedWaypoint=null;drag=null;clearDraft();tool='select';render();persist();notify(info.connected?'已磁吸接上油管':'已調整管線端點');},onCancel:original=>{state=original;render();persist();},onClick:(owner,port)=>{connectPort(owner,port);persist();},notify});
+pipeEndpointDrag=setupPipeEndpointDrag({svg,getMode:()=>mode==='edit'&&tool!=='hand'?'edit':'sim',getProject:()=>state,portInfo,getPortNames:n=>n.type==='valve'&&n.variant==='riser'?['center']:nodePorts(n),getPending:()=>pendingPort,onStart:()=>{clearTimeout(saveTimer);transformControls?.cancel();},onPreview:next=>{state=next;renderGraph();},onCommit:(original,next,info)=>{history.push(clone(original));if(history.length>70)history.shift();future=[];state=next;selected=info.kind==='pipe'?{kind:'node',id:info.nodeId}:{kind:'edge',id:info.edgeId};selectedWaypoint=null;drag=null;clearDraft();tool='select';render();persist();notify(info.connected?'已磁吸接上油管':'已調整管線端點');},onCancel:original=>{state=original;render();persist();},onClick:(owner,port)=>{connectPort(owner,port);persist();},onSelect:owner=>{selected={kind:'node',id:owner};selectedWaypoint=null;tool='select';render();persist();},notify});
 svg.addEventListener('pointerdown',ev=>{
  if(ev.button!==0&&ev.button!==1)return;
  canvasPointer=ev.pointerType==='touch'?null:{x:ev.clientX,y:ev.clientY};const p=point(ev);
