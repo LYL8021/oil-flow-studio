@@ -27,6 +27,7 @@
 - `dist/image-draft.js`、`dist/vendor/ocr/`：圖片候選辨識、模型與 WASM；保留完整資源及授權。候選須人工確認，不會自動接好管線。
 - `dist/pdf-import.js`、`dist/vendor/pdf/`：瀏覽器內 PDF 選頁、轉向與渲染，內附 PDF.js 6.4.299 的 renderer、worker、CMap、字型、WASM 及授權；發布時完整保留，不使用外站處理私人 PDF。`dist/reference-layout.js` 接受 25%～1000% 的底圖縮放，最大尺寸 30000；底圖位置、元件與油管轉折點座標支援 ±40000，各處幾何與匯入檢查須一致。
 - `tests/`：通油與管線測試；`scripts/package-offline.py`：更新離線下載成品。
+- `dist/app.js` 的彎折點中心可開始／完成接管，外圈保留拖曳；支援自由路徑與舊直角路徑。中心須使用原折線頂點與完整路徑交給 `commitPipeRun`，避免投影到圓弧後偏移。僅完成繪製才拆開所選管線，取消不得改變拓樸；交叉仍互不相通。
 - `dist/project-library.js`、`dist/cloud-project-store.js`：本機／共用圖面與歷史版本；更新必須檢查版本，衝突保留畫布，明確保存才分享。`dist/feedback.js`、`dist/feedback.css`：共用修改建議介面。
 - `server/`：匿名留言與共用圖面後端；自有 Cloudflare 僅使用 Workers Free＋D1，`d1-snapshots.js` 分段保存不可變圖面 JSON，無須 R2 或開通計費；原 Sites 保留既有 R2 相容。後端獨立於 Vercel 靜態部署，維護前先讀 `server/README.md`，保留既有資料庫、服務身分與已套用的遷移。
 
