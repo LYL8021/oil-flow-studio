@@ -1,4 +1,4 @@
-import {TANK_PORT_RADIUS,componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=ports-3-1';
+import {TANK_PORT_RADIUS,CAP_PORT_X,componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=cap-1';
 
 /* Identifier positions follow the visible glyph; they remain upright while it turns. */
 function symbolBounds(node) {
@@ -8,7 +8,7 @@ function symbolBounds(node) {
   }
   const bounds = {
     ground:[-16,-10,16,10], filter:[-36,-22,36,22],
-    flowmeter:[-36,-24,36,24], cap:[-28,-22,20,22],
+    flowmeter:[-36,-24,36,24], cap:[CAP_PORT_X,-15,20,15],
     outlet:[-33,-21,21,21], elbow:[-9,-39,39,9],
     junction:[-33,-7,33,33], cross:[-33,-33,33,33],
     tank:[-TANK_PORT_RADIUS,-TANK_PORT_RADIUS,TANK_PORT_RADIUS,TANK_PORT_RADIUS]

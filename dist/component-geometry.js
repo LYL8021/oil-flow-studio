@@ -6,6 +6,8 @@ const clean = value => Math.abs(value) < 1e-10 ? 0 : value;
 
 // The former 4-unit projection is now one third as long beyond the 46-unit rim.
 export const TANK_PORT_RADIUS = 46 + 4 / 3;
+// A 6.6-unit stem is one fifth of the former 33-unit stem, ending at x=5.
+export const CAP_PORT_X = -1.6;
 
 export function normalizeAngle(value, fallback = 0) {
   const angle = Number.isFinite(value) ? value : Number.isFinite(fallback) ? fallback : 0;
@@ -47,7 +49,7 @@ export function componentPort(node, port) {
   } else if (node.type === 'pipe') {
     const length=Number.isFinite(node.length)?clamp(node.length,60,1600):160;
     local=port === 'in'?[-length/2,0,-1,0]:[length/2,0,1,0];
-  } else if (node.type === 'cap') local=[-28,0,-1,0];
+  } else if (node.type === 'cap') local=[CAP_PORT_X,0,-1,0];
   else if (node.type === 'ground') local=node.variant === 'sink'?[-16,0,-1,0]:[16,0,1,0];
   else if (node.type === 'outlet') local=[-33,0,-1,0];
   else if (node.type === 'valve') local=port === 'in'?[-29,0,-1,0]:[29,0,1,0];

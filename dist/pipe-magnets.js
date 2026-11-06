@@ -1,4 +1,4 @@
-import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=ports-3-1';
+import {componentPort,nodeScale,normalizeAngle} from './component-geometry.js?v=cap-1';
 import {tankPortIds} from './source-settings.js?v=ports-3-1';
 
 /* Explicit endpoint drags join graph ports; visual crossings never connect. */
