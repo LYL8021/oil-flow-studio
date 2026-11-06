@@ -23,7 +23,7 @@ test('tank nozzle angles remain independent and compose with symbol scale and ro
 
 test('every component connection scales and rotates with its symbol; direction stays a unit vector',()=>{
  const cases=[['valve','in',-29,0],['filter','out',36,0],['flowmeter','in',-36,0],
-  ['pipe','out',80,0],['cap','in',-28,0],['outlet','in',-33,0],
+  ['pipe','out',80,0],['cap','in',-1.6,0],['outlet','in',-33,0],
   ['elbow','in',0,-32],['junction','branch',0,26],['cross','top',0,-26]];
  for(const [type,port,x,y] of cases){
   const base={type,x:10,y:20},legacy=componentPort(base,port),changed=componentPort({...base,scale:2,rotation:90},port);

@@ -8,14 +8,14 @@ import {referenceSymbol} from './symbols.js?v=flange-1';
 import {normalizeReference,transformReference} from './reference-layout.js?v=1000-1';
 import {readImage,analyzePreparedImage} from './image-draft.js?v=pdf-1';
 import {isPdfFile} from './pdf-import.js?v=pdf-1';
-import {componentPort,TANK_PORT_RADIUS,nodeScale,maxNodeScale,normalizeTankPorts,normalizeAngle} from './component-geometry.js?v=ports-3-1';
-import {setupTransformControls} from './transform-controls.js?v=ports-3-1';
-import {identifierLayout} from './component-labels.js?v=ports-3-1';
+import {componentPort,TANK_PORT_RADIUS,CAP_PORT_X,nodeScale,maxNodeScale,normalizeTankPorts,normalizeAngle} from './component-geometry.js?v=cap-1';
+import {setupTransformControls} from './transform-controls.js?v=cap-1';
+import {identifierLayout} from './component-labels.js?v=cap-1';
 import {copyComponent,pasteComponent,copyPipeSegment,pastePipeSegment} from './component-clipboard.js?v=ports-3-1';
 import {createBlankDrawing,applyReference} from './drawing-actions.js?v=drawing-1';
 import {tankPortCount,tankPortIds,normalizeTankPortModes,normalizeGroundMode,sourcePortsForNode} from './source-settings.js?v=ports-3-1';
 import {pipeBorderDashes} from './pipe-visuals.js?v=joins-1';
-import {setupPipeEndpointDrag} from './pipe-magnets.js?v=magnet-2';
+import {setupPipeEndpointDrag} from './pipe-magnets.js?v=cap-1';
 import {setupProjectLibrary} from './project-library.js?v=ports-3-1';
 import {normalizeOperations} from './operations.js?v=ports-3-1';
 import {setupOperationPanel} from './operation-panel.js?v=ports-3-1';
@@ -56,7 +56,7 @@ function symbol(type,active=true,open=true,mini=false,variant){
  switch(type){
  case 'text':return '<text x="0" y="15" text-anchor="middle" fill="currentColor" stroke="none" font-size="48" font-family="serif">T</text>';
  case 'pipe':return `<path d="M-43 0H43" fill="none" stroke-width="5"/><path d="M-43-6v12m86-12v12" stroke-width="1.5"/>`;
- case 'cap':return `<path d="M-28 0H5"/><rect x="5" y="-22" width="9" height="44" rx="1" fill="${fill}"/><path d="M-1-22h21m-21 44h21M8-15h4M8 15h4" stroke-width="2"/>`;
+ case 'cap':return `<path class="cap-stem" d="M${CAP_PORT_X} 0H5"/><rect class="cap-bar" x="5" y="-15" width="9" height="30" rx="1" fill="${fill}"/><path d="M-1-15h21m-21 30h21M8-9h4M8 9h4" stroke-width="2"/>`;
  case 'flowmeter':return `<path d="M-36 0h12m48 0h12"/><circle r="24" fill="${fill}"/><text x="0" y="6" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif" font-size="18" font-weight="500">F</text>`;
  case 'elbow':return `<path d="M0-32v14Q0 0 18 0h14" stroke-width="14" stroke="var(--diagram-surface)" fill="none"/><path d="M0-32v14Q0 0 18 0h14" stroke-width="8" fill="none"/><path d="M0-32v14Q0 0 18 0h14" stroke-width="4" stroke="${fill}" fill="none"/><path d="M-9-27H9m18 18v18" stroke-width="2"/>`;
  case 'cross':return `<path d="M-26 0h52M0-26v52" stroke="var(--diagram-surface)" stroke-width="14"/><path d="M-26 0h52M0-26v52" stroke-width="8"/><path d="M-26 0h52M0-26v52" stroke="${fill}" stroke-width="4"/><circle r="5" fill="${active?'var(--fluid-line,var(--orange))':'var(--diagram-idle-symbol)'}" stroke="none"/>`;

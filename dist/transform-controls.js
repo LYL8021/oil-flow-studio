@@ -1,4 +1,4 @@
-import {TANK_PORT_RADIUS,nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js?v=ports-3-1';
+import {TANK_PORT_RADIUS,nodeScale,maxNodeScale,normalizeAngle,normalizeTankPorts} from './component-geometry.js?v=cap-1';
 import {tankPortIds} from './source-settings.js?v=ports-3-1';
 
 /* Editing handles live above the drawing, separate from the oil connection ports. */
